@@ -12,15 +12,15 @@ const demos = [
   "ragdoll",
 ];
 const hash = (data: Buffer) => createHash("sha256").update(data).digest("hex");
-test("all nine WebGL demos render, animate, pause and reset", async ({
-  page,
-}, testInfo) => {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto("/?demo=ik&view=lab&lang=en");
-  await expect(page.locator("canvas[data-webgl=ready]")).toBeVisible();
-  for (const id of demos) {
-    await page.locator(`[data-demo="${id}"]`).click();
+for (const id of demos)
+  test(`${id}: WebGL render, motion, pause and reset`, async ({
+    page,
+  }, testInfo) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await page.goto(`/?demo=${id}&view=lab&lang=en`);
+    await expect(page.locator("canvas[data-webgl=ready]")).toBeVisible();
+
     await page.getByTestId("reset").click();
     await page.waitForFunction(() => window.__JOINT_LAB__?.().pose.length! > 0);
     if (id === "ragdoll")
@@ -51,12 +51,15 @@ test("all nine WebGL demos render, animate, pause and reset", async ({
     expect(later.time).toBe(paused.time);
     expect(later.pose).toEqual(paused.pose);
     await page.getByTestId("reset").click();
-    await page.waitForTimeout(100);
-    expect((await page.evaluate(() => window.__JOINT_LAB__!())).time).toBe(0);
+    await expect
+      .poll(
+        async () => (await page.evaluate(() => window.__JOINT_LAB__!())).time,
+        { timeout: 15000 },
+      )
+      .toBe(0);
     await page.getByTestId("play-pause").click();
-  }
-  expect(errors).toEqual([]);
-});
+    expect(errors).toEqual([]);
+  });
 test("controls, guide routing and bilingual mobile layout", async ({
   page,
 }, testInfo) => {
@@ -154,4 +157,39 @@ test("IK/FK matching and real physics push", async ({ page }) => {
   const snap = await page.evaluate(() => window.__JOINT_LAB__!());
   expect(Number(snap.metrics.energy)).toBeGreaterThan(0);
   expect(snap.pose.every(Number.isFinite)).toBeTruthy();
+});
+
+test("direct target dragging and mobile target framing", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/?demo=ik&view=lab&lang=en");
+  await page.getByLabel("Animate input", { exact: true }).uncheck();
+  const canvas = page.locator("canvas");
+  await expect(canvas).toHaveAttribute("data-target-x", /.+/);
+  const before = Number(await page.locator("[data-control=tx]").inputValue());
+  const rect = await canvas.boundingBox();
+  const x = Number(await canvas.getAttribute("data-target-x")),
+    y = Number(await canvas.getAttribute("data-target-y"));
+  await page.mouse.move(rect!.x + x, rect!.y + y);
+  await page.mouse.down();
+  await page.mouse.move(rect!.x + x - 65, rect!.y + y + 15, { steps: 10 });
+  await page.mouse.up();
+  await expect
+    .poll(async () =>
+      Number(await page.locator("[data-control=tx]").inputValue()),
+    )
+    .toBeLessThan(before - 0.05);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByLabel("Target reach", { exact: true }).press("End");
+  await expect
+    .poll(async () => {
+      const box = await canvas.boundingBox();
+      const target = Number(await canvas.getAttribute("data-target-x"));
+      return target > 15 && target < box!.width - 15;
+    })
+    .toBeTruthy();
+  await page.screenshot({
+    path: testInfo.outputPath("target-mobile.png"),
+    fullPage: true,
+  });
 });

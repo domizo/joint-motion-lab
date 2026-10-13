@@ -55,6 +55,7 @@ export class LabRenderer {
   private resize: ResizeObserver;
   private plane = new Plane(V(0, 0, 1), 0);
   private frames = 0;
+  private viewportScale = 1;
   constructor(
     readonly host: HTMLElement,
     readonly onTarget: (x: number, y: number) => void,
@@ -99,7 +100,7 @@ export class LabRenderer {
     this.contactPlatform.receiveShadow = true;
     this.contactPlatform.visible = false;
     this.scene.add(this.contactPlatform);
-    this.grid = new GridHelper(80, 160, 0xb6beb0, 0xd5dbd0);
+    this.grid = new GridHelper(80, 160, 0x9aab8a, 0xb7c4aa);
     this.grid.position.y = 0.002;
     this.scene.add(this.grid);
     this.terrain = new Mesh(
@@ -148,6 +149,12 @@ export class LabRenderer {
     if (width < 1 || height < 1) return;
     this.renderer.setSize(width, height);
     this.camera.aspect = width / height;
+    const nextScale = Math.max(1, 1 / Math.sqrt(this.camera.aspect));
+    this.camera.position
+      .sub(this.orbit.target)
+      .multiplyScalar(nextScale / this.viewportScale)
+      .add(this.orbit.target);
+    this.viewportScale = nextScale;
     this.camera.updateProjectionMatrix();
   }
   private pointer(event: PointerEvent) {
@@ -233,7 +240,7 @@ export class LabRenderer {
     this.markers.slice(f.markers.length).forEach((m) => (m.visible = false));
     this.updateLines(f.lines);
     this.follow(f.focus);
-    this.floor.position.y = 0;
+    this.floor.position.y = -0.012;
     this.grid.position.y = 0.003;
     this.contactPlatform.visible = (f.ground ?? 0) > 0;
     if (this.contactPlatform.visible) {
@@ -285,7 +292,7 @@ export class LabRenderer {
     this.markers.forEach((m) => (m.visible = false));
     this.target = undefined;
     this.targetMarker = undefined;
-    this.floor.position.y = 0;
+    this.floor.position.y = -0.012;
     this.grid.position.y = 0.003;
     this.terrain.visible = false;
     this.contactPlatform.visible = false;
@@ -354,12 +361,29 @@ export class LabRenderer {
     this.orbit.target.copy(this.focus);
     this.camera.position
       .copy(this.focus)
-      .add(front ? V(0, 0.5, 7.8) : V(4.2, 2.5, 6.8));
+      .add(
+        (front ? V(0, 0.5, 7.8) : V(4.2, 2.5, 6.8)).multiplyScalar(
+          this.viewportScale,
+        ),
+      );
     this.orbit.update();
   }
   render() {
     if (this.disposed) return;
     this.orbit.update();
+    if (this.target) {
+      const screen = this.target.clone().project(this.camera),
+        rect = this.renderer.domElement.getBoundingClientRect();
+      this.renderer.domElement.dataset.targetX = String(
+        ((screen.x + 1) * rect.width) / 2,
+      );
+      this.renderer.domElement.dataset.targetY = String(
+        ((1 - screen.y) * rect.height) / 2,
+      );
+    } else {
+      delete this.renderer.domElement.dataset.targetX;
+      delete this.renderer.domElement.dataset.targetY;
+    }
     this.renderer.render(this.scene, this.camera);
     this.frames++;
     this.renderer.domElement.dataset.frames = String(this.frames);

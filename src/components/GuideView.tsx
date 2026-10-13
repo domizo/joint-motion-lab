@@ -80,7 +80,10 @@ function Diagram({
         </text>
       </svg>
     );
-  const points = frame.segments.flatMap((s) => [s.a, s.b]);
+  const points = [
+    ...frame.segments.flatMap((s) => [s.a, s.b]),
+    ...frame.markers.map((m) => m.position),
+  ];
   if (!points.length) return null;
   const xs = points.map((p) => p.x + p.z * 0.25),
     ys = points.map((p) => p.y),
