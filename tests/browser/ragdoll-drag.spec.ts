@@ -1,6 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import type { RagdollBodyId } from "../../src/engine/ragdoll";
 
+test.use({ video: "on" });
+
 async function standing(page: Page) {
   const toggle = page.getByTestId("play-pause");
   if ((await toggle.textContent())?.includes("Pause")) await toggle.click();
@@ -50,7 +52,6 @@ async function released(page: Page) {
 }
 
 test.describe("physical body surface dragging", () => {
-  test.use({ video: "on" });
   test("mouse grabs head, torso, hand and foot at surface anchors", async ({
     page,
   }, info) => {
@@ -207,7 +208,6 @@ test.describe("touch body pulling", () => {
     viewport: { width: 390, height: 844 },
     hasTouch: true,
     isMobile: true,
-    video: "on",
   });
   test("real touch pulls a hand and head; cancel and second-pointer arbitration stay bounded", async ({
     page,
