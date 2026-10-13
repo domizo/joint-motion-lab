@@ -1,0 +1,1060 @@
+:root {
+  font-family:
+    "DM Sans Variable", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  color: #171d19;
+  background: #f5f6f1;
+  font-synthesis: none;
+  font-weight: 400;
+  --ink: #171d19;
+  --muted: #697069;
+  --line: #dce0d6;
+  --lime: #d4ed72;
+  --rail: #191e1a;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button,
+a,
+input,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  cursor: pointer;
+}
+a {
+  color: inherit;
+  text-underline-offset: 4px;
+}
+button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #8070d5;
+  outline-offset: 5px;
+}
+button:disabled {
+  cursor: wait;
+}
+svg {
+  display: block;
+}
+button svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.app-header {
+  height: 72px;
+  background: var(--rail);
+  color: #f1f4ed;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid #ffffff13;
+  position: relative;
+  z-index: 3;
+}
+.brand {
+  width: 224px;
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  padding: 0 26px;
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.7px;
+}
+.brand svg {
+  width: 33px;
+  height: 33px;
+  color: var(--lime);
+}
+.app-header nav {
+  display: flex;
+  gap: 26px;
+  padding: 0 26px;
+}
+.app-header nav button {
+  position: relative;
+  font-size: 15px;
+  color: #b8c1b8;
+  padding: 0 7px;
+}
+.app-header nav button.active {
+  color: #fff;
+}
+.app-header nav button.active:after {
+  position: absolute;
+  content: "";
+  height: 3px;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  background: var(--lime);
+}
+.language {
+  margin-left: auto;
+  padding: 0 26px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #849084;
+}
+.language button {
+  color: #aab4aa;
+  padding: 12px 4px;
+}
+.language button[aria-pressed="true"] {
+  color: #fff;
+}
+.app-body {
+  display: flex;
+  min-height: calc(100dvh - 72px);
+}
+.chapter-nav {
+  background: var(--rail);
+  width: 224px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 26px;
+  color: #afb8af;
+  position: relative;
+}
+.chapter-nav > button {
+  padding: 21px 20px 21px 23px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.45;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.chapter-nav > button:hover {
+  background: #2b342b;
+  color: white;
+}
+.chapter-nav > button.selected {
+  background: var(--lime);
+  color: #151a14;
+  font-weight: 550;
+}
+.chapter-nav > button > span {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: #8f9c8f;
+}
+.chapter-nav > button.selected > span {
+  color: #38422a;
+}
+.rail-footer {
+  margin-top: auto;
+  padding: 50px 24px 25px;
+  line-height: 1.8;
+  font-size: 11px;
+  color: #849183;
+}
+.rail-footer small {
+  display: block;
+  font-size: 10px;
+  color: #61735f;
+  margin-top: 9px;
+}
+main {
+  min-width: 0;
+  flex: 1;
+}
+.lab-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  height: calc(100dvh - 72px);
+  min-height: 670px;
+}
+.lab-layout[hidden] {
+  display: none;
+}
+.stage {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: #f5f6f1;
+  isolation: isolate;
+}
+.stage-heading {
+  position: absolute;
+  z-index: 1;
+  top: 32px;
+  left: 34px;
+  right: 30px;
+  pointer-events: none;
+}
+.stage-heading h1 {
+  font-size: clamp(26px, 2.8vw, 45px);
+  line-height: 1.18;
+  letter-spacing: -1.8px;
+  margin: 0;
+  font-weight: 650;
+}
+.stage-heading p {
+  font-size: clamp(13px, 1.12vw, 17px);
+  line-height: 1.7;
+  color: #646d63;
+  margin: 10px 0 0;
+  max-width: 560px;
+}
+.scene-host {
+  width: 100%;
+  flex: 1;
+  min-height: 400px;
+  overflow: hidden;
+  position: relative;
+}
+.scene-host canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.scene-status {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #f9faf6f2;
+  padding: 24px;
+  z-index: 2;
+  max-width: 440px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.scene-error {
+  width: calc(100% - 50px);
+  border-left: 3px solid #9479d6;
+}
+.viewport-tools {
+  position: absolute;
+  bottom: 93px;
+  left: 26px;
+  right: 26px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: #77816f;
+  font-size: 10px;
+  pointer-events: none;
+}
+.viewport-tools button {
+  font-size: 11px;
+  background: #ffffffa6;
+  padding: 7px 11px;
+  border: 1px solid #d2d9cc;
+  pointer-events: auto;
+  min-width: 52px;
+}
+.transport {
+  height: 76px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  padding: 0 25px;
+  gap: 25px;
+  background: #fafbf7;
+  font-size: 13px;
+}
+.transport button {
+  padding: 14px 0;
+  white-space: nowrap;
+}
+.transport .play {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 87px;
+}
+.transport .time {
+  margin-left: auto;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: #5b6658;
+  min-width: 62px;
+  text-align: right;
+}
+.transport .time span {
+  color: #8f998a;
+}
+.speed {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  color: #73816c;
+}
+.speed select {
+  background: transparent;
+  border: 0;
+  padding: 8px 0;
+  color: var(--ink);
+  font-size: 12px;
+}
+.inspector {
+  border-left: 1px solid var(--line);
+  padding: 30px 25px 25px;
+  background: #fafbf7;
+  overflow-y: auto;
+}
+.inspector h2 {
+  font-size: 20px;
+  line-height: 1.35;
+  letter-spacing: -0.5px;
+  margin: 0 0 35px;
+  font-weight: 600;
+}
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+.slider {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  font-size: 13px;
+}
+.slider > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+  color: #5b635b;
+}
+.slider output {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: var(--ink);
+}
+input[type="range"] {
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  cursor: pointer;
+  background: #d9ded4;
+  border-radius: 3px;
+  margin: 8px 0;
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 19px;
+  height: 19px;
+  border: 1px solid #394436;
+  background: #fdfefb;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px #0002;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 17px;
+  height: 17px;
+  border: 1px solid #394436;
+  background: #fdfefb;
+  border-radius: 50%;
+}
+.checks {
+  margin-top: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  font-size: 12px;
+}
+.checks label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.checks input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--ink);
+}
+.metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 19px;
+  padding: 28px 0;
+  margin: 29px 0 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+.metrics > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+.metrics dt {
+  color: #737b71;
+  line-height: 1.5;
+}
+.metrics dd {
+  margin: 0;
+  text-align: right;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  max-width: 130px;
+}
+.metrics dd.warning {
+  color: #9c5728;
+}
+.inspector-note {
+  border-top: 1px solid var(--line);
+  padding-top: 21px;
+  color: #76806f;
+  font-size: 12px;
+  line-height: 1.9;
+}
+.inspector-note p {
+  margin: 0 0 20px;
+}
+.text-link {
+  padding: 0;
+  border-bottom: 1px solid #3b4735;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #26301f;
+  font-size: 12px;
+  padding-bottom: 2px;
+}
+.text-link svg {
+  width: 18px;
+}
+.button {
+  border: 1px solid #cbd4bf;
+  padding: 12px 15px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  text-decoration: none;
+  line-height: 1.4;
+}
+.button:hover {
+  background: #edf1e5;
+}
+.button.lime {
+  background: var(--lime);
+  border-color: var(--lime);
+  color: #202819;
+}
+.button.lime:hover {
+  background: #c9e363;
+}
+.match-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.skip {
+  position: fixed;
+  top: -60px;
+  left: 12px;
+  z-index: 30;
+  background: var(--lime);
+  padding: 10px;
+}
+.skip:focus {
+  top: 10px;
+}
+.guide-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 850px) 200px;
+  gap: 44px;
+  max-width: 1230px;
+  margin: auto;
+  padding: 42px 46px 80px;
+}
+.guide-article h1 {
+  font-family: Georgia, "Noto Serif JP", "Yu Mincho", serif;
+  font-weight: 500;
+  font-size: clamp(30px, 3vw, 46px);
+  letter-spacing: -1.2px;
+  line-height: 1.3;
+  margin: 0;
+}
+.guide-lead {
+  font-size: 18px;
+  line-height: 1.85;
+  color: #6c7468;
+  max-width: 850px;
+  margin: 18px 0 32px;
+}
+.guide-article figure {
+  margin: 0 0 43px;
+}
+.guide-diagram {
+  width: 100%;
+  height: auto;
+  max-height: 340px;
+  background: #eef1e8;
+  overflow: hidden;
+}
+.guide-diagram text {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  fill: #727d66;
+}
+.guide-article figcaption {
+  font-size: 10px;
+  color: #859079;
+  line-height: 1.7;
+  margin-top: 10px;
+}
+.guide-article section {
+  scroll-margin-top: 25px;
+  margin: 42px 0;
+}
+.guide-step {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 16px;
+  margin: 0 0 32px;
+}
+.step-number {
+  font-family: "IBM Plex Mono", monospace;
+  color: #8e9d80;
+  font-size: 15px;
+  padding-top: 6px;
+}
+.guide-article h2 {
+  font-family: Georgia, "Noto Serif JP", "Yu Mincho", serif;
+  font-size: 25px;
+  font-weight: 500;
+  line-height: 1.5;
+  margin: 0 0 14px;
+  letter-spacing: -0.5px;
+}
+.guide-article p,
+.guide-article li {
+  font-size: 14px;
+  line-height: 1.95;
+  color: #626d5b;
+}
+.guide-step p {
+  margin: 8px 0;
+}
+.guide-article li {
+  padding-left: 4px;
+  margin: 14px 0;
+}
+.guide-article ul,
+.guide-article ol {
+  padding-left: 23px;
+}
+.formula {
+  background: #e9eedf;
+  padding: 24px 29px;
+  margin: 28px 0;
+}
+.formula p {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  line-height: 1.9;
+  color: #3d4d2f;
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+.formula small {
+  color: #7a876c;
+  font-size: 11px;
+  line-height: 1.8;
+  display: block;
+}
+.guide-outline {
+  border-left: 1px solid var(--line);
+  padding-left: 24px;
+  position: sticky;
+  top: 32px;
+  align-self: start;
+  font-size: 12px;
+}
+.guide-outline > p {
+  font-size: 13px;
+  margin: 4px 0 20px;
+}
+.guide-outline > a {
+  display: block;
+  text-decoration: none;
+  color: #7a856f;
+  margin: 0 0 20px;
+  font-size: 12px;
+}
+.guide-outline > .button {
+  margin-top: 15px;
+}
+.guide-current {
+  margin-top: 45px;
+  color: #7a856f;
+  font-size: 11px;
+}
+.guide-current .metrics {
+  margin-top: 15px;
+  padding-top: 20px;
+  gap: 15px;
+}
+.guide-current .metrics > div {
+  flex-direction: column;
+  gap: 4px;
+}
+.source-list {
+  list-style: none;
+  padding: 0 !important;
+  border-top: 1px solid var(--line);
+}
+.source-list li {
+  padding: 12px 0;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+}
+.source-list a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  font-size: 12px;
+  text-decoration: none;
+}
+.source-list svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+@media (min-width: 1800px) {
+  .stage-heading {
+    top: 42px;
+    left: 50px;
+  }
+  .lab-layout {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+  .inspector {
+    padding: 38px 30px;
+  }
+  .chapter-nav,
+  .brand {
+    width: 244px;
+  }
+  .chapter-nav > button {
+    font-size: 14px;
+  }
+}
+@media (max-width: 1200px) {
+  .chapter-nav,
+  .brand {
+    width: 198px;
+  }
+  .chapter-nav > button {
+    padding-left: 16px;
+    gap: 11px;
+    font-size: 12px;
+  }
+  .brand {
+    padding-left: 19px;
+    font-size: 21px;
+  }
+  .lab-layout {
+    grid-template-columns: minmax(0, 1fr) 260px;
+  }
+  .inspector {
+    padding: 28px 20px;
+  }
+  .stage-heading {
+    left: 26px;
+  }
+  .stage-heading h1 {
+    letter-spacing: -1px;
+  }
+  .guide-layout {
+    padding: 34px 30px;
+    gap: 28px;
+    grid-template-columns: minmax(0, 1fr) 165px;
+  }
+  .guide-outline {
+    padding-left: 18px;
+  }
+}
+@media (max-width: 960px) {
+  .chapter-nav,
+  .brand {
+    width: 174px;
+  }
+  .brand {
+    font-size: 19px;
+    gap: 9px;
+    padding-left: 14px;
+  }
+  .brand svg {
+    width: 28px;
+  }
+  .chapter-nav > button {
+    font-size: 11px;
+    gap: 9px;
+    padding: 20px 12px;
+  }
+  .lab-layout {
+    grid-template-columns: minmax(0, 1fr) 230px;
+  }
+  .inspector {
+    padding: 26px 17px;
+  }
+  .stage-heading {
+    top: 26px;
+    left: 24px;
+  }
+  .stage-heading h1 {
+    font-size: 29px;
+  }
+  .stage-heading p {
+    font-size: 12px;
+  }
+  .transport {
+    gap: 16px;
+    padding: 0 18px;
+  }
+  .transport .play {
+    min-width: 67px;
+    font-size: 11px;
+  }
+  .transport .time {
+    font-size: 10px;
+    min-width: 40px;
+  }
+  .speed > span {
+    display: none;
+  }
+  .viewport-tools span {
+    font-size: 9px;
+  }
+  .guide-layout {
+    display: block;
+    max-width: 780px;
+  }
+  .guide-outline {
+    display: none;
+  }
+  .inspector h2 {
+    font-size: 18px;
+  }
+}
+@media (max-width: 740px) {
+  .app-header {
+    height: 64px;
+  }
+  .brand {
+    width: auto;
+    padding: 0 15px;
+    font-size: 20px;
+  }
+  .app-header nav {
+    gap: 13px;
+    padding: 0 9px;
+  }
+  .app-header nav button {
+    font-size: 13px;
+    padding: 0 4px;
+  }
+  .language {
+    padding: 0 12px;
+    gap: 4px;
+    font-size: 11px;
+  }
+  .app-body {
+    display: block;
+    min-height: calc(100dvh - 64px);
+  }
+  .chapter-nav {
+    width: 100%;
+    flex-direction: row;
+    padding: 0;
+    overflow-x: auto;
+    position: relative;
+    scrollbar-width: thin;
+    scrollbar-color: #56654e #191e1a;
+  }
+  .chapter-nav > button {
+    flex-shrink: 0;
+    padding: 16px 18px;
+    font-size: 11px;
+    white-space: nowrap;
+    gap: 9px;
+  }
+  .rail-footer {
+    display: none;
+  }
+  .lab-layout {
+    display: block;
+    height: auto;
+    min-height: 0;
+  }
+  .stage {
+    height: 560px;
+    min-height: 460px;
+  }
+  .stage-heading {
+    left: 22px;
+    top: 26px;
+    right: 18px;
+  }
+  .stage-heading h1 {
+    font-size: 32px;
+    letter-spacing: -1.2px;
+  }
+  .stage-heading p {
+    font-size: 12px;
+    max-width: 350px;
+  }
+  .scene-host {
+    min-height: 0;
+  }
+  .transport {
+    height: 66px;
+    gap: 26px;
+    padding: 0 22px;
+  }
+  .transport .play {
+    font-size: 12px;
+    min-width: 90px;
+  }
+  .transport .time {
+    font-size: 12px;
+  }
+  .speed > span {
+    display: none;
+  }
+  .viewport-tools {
+    bottom: 81px;
+    left: 22px;
+    right: 22px;
+  }
+  .viewport-tools span {
+    font-size: 9px;
+  }
+  .inspector {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    overflow: visible;
+    padding: 26px 24px 34px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 30px;
+  }
+  .inspector h2 {
+    grid-column: 1/-1;
+    margin-bottom: 26px;
+    font-size: 21px;
+  }
+  .controls {
+    gap: 23px;
+  }
+  .metrics {
+    border-top: 0;
+    margin: 0;
+    padding: 0;
+    justify-content: flex-start;
+    gap: 21px;
+  }
+  .inspector-note {
+    grid-column: 1/-1;
+    margin-top: 27px;
+    padding-top: 19px;
+    font-size: 12px;
+  }
+  .inspector-note p {
+    max-width: 650px;
+  }
+  .guide-layout {
+    padding: 28px 23px 55px;
+  }
+  .guide-lead {
+    font-size: 16px;
+    line-height: 1.9;
+  }
+  .guide-article h1 {
+    font-size: 30px;
+  }
+  .guide-article h2 {
+    font-size: 22px;
+  }
+  .guide-article p,
+  .guide-article li {
+    font-size: 13px;
+  }
+  .guide-article figure {
+    margin-bottom: 30px;
+  }
+  .guide-article section {
+    margin: 32px 0;
+  }
+  .guide-step {
+    grid-template-columns: 26px 1fr;
+    gap: 10px;
+  }
+  .step-number {
+    font-size: 12px;
+  }
+  .formula {
+    padding: 20px;
+  }
+  .formula p {
+    font-size: 11px;
+  }
+  .guide-diagram text {
+    font-size: 12px;
+  }
+}
+@media (max-width: 400px) {
+  .brand {
+    font-size: 18px;
+    padding: 0 10px;
+    gap: 7px;
+  }
+  .brand svg {
+    width: 24px;
+  }
+  .app-header nav {
+    gap: 9px;
+    padding: 0 4px;
+  }
+  .language {
+    padding: 0 7px;
+    font-size: 10px;
+  }
+  .stage {
+    height: 520px;
+  }
+  .stage-heading h1 {
+    font-size: 28px;
+  }
+  .transport {
+    padding: 0 18px;
+    gap: 22px;
+  }
+  .transport .play {
+    min-width: 77px;
+  }
+  .inspector {
+    padding: 25px 21px;
+    gap: 0 21px;
+  }
+  .slider {
+    font-size: 12px;
+  }
+  .metrics {
+    font-size: 11px;
+  }
+  .metrics dd {
+    font-size: 10px;
+  }
+  .checks {
+    font-size: 11px;
+  }
+  .inspector h2 {
+    font-size: 19px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
+.brand {
+  font-size: 18px;
+  letter-spacing: -0.5px;
+  gap: 10px;
+  padding-left: 19px;
+  padding-right: 12px;
+}
+.brand svg {
+  width: 28px;
+  flex-shrink: 0;
+}
+@media (max-width: 1200px) {
+  .brand {
+    font-size: 16px;
+    gap: 8px;
+    padding-left: 15px;
+  }
+  .brand svg {
+    width: 25px;
+  }
+}
+@media (max-width: 960px) {
+  .brand {
+    font-size: 14px;
+    gap: 7px;
+    padding-left: 12px;
+  }
+  .brand svg {
+    width: 23px;
+  }
+}
+@media (max-width: 740px) {
+  .brand {
+    font-size: 16px;
+    gap: 8px;
+    padding: 0 12px;
+  }
+  .brand svg {
+    width: 24px;
+  }
+  .app-header nav {
+    gap: 8px;
+    padding: 0 5px;
+  }
+  .language {
+    padding: 0 8px;
+    font-size: 10px;
+  }
+}
+@media (max-width: 400px) {
+  .brand {
+    font-size: 14px;
+    gap: 6px;
+    padding: 0 9px;
+  }
+  .brand svg {
+    width: 21px;
+  }
+  .app-header nav {
+    gap: 6px;
+  }
+  .language {
+    padding: 0 5px;
+  }
+  .app-header nav button {
+    font-size: 12px;
+  }
+}
