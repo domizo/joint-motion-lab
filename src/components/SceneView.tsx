@@ -2,13 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import type { DemoId, Language } from "../content/demos";
 import { LabRenderer } from "../engine/renderer";
 import { makeFrame } from "../engine/frame";
-import type { RagdollSimulation } from "../engine/ragdoll";
+import type {
+  RagdollSimulation,
+  RagdollDragState,
+  RagdollSelfContact,
+  RagdollBodyState,
+} from "../engine/ragdoll";
 export interface Snapshot {
   time: number;
   metrics: Record<string, number | string>;
   pose: number[];
   frames: number;
   status: string;
+  drag?: RagdollDragState | null;
+  selfContacts?: RagdollSelfContact[];
+  bodies?: RagdollBodyState[];
 }
 export interface SceneProps {
   id: DemoId;
@@ -40,9 +48,28 @@ export function SceneView(props: SceneProps) {
   useEffect(() => {
     if (!host.current) return;
     let render: LabRenderer;
+    let sim: RagdollSimulation | undefined;
     try {
-      render = new LabRenderer(host.current, (x, y) =>
-        current.current.onTarget(x, y),
+      render = new LabRenderer(
+        host.current,
+        (x, y) => current.current.onTarget(x, y),
+        {
+          begin: (bodyId, point) => {
+            const p = current.current;
+            if (
+              !sim ||
+              p.id !== "ragdoll" ||
+              !p.playing ||
+              !p.visible ||
+              document.hidden
+            )
+              return false;
+            sim.beginDrag(bodyId, point);
+            return true;
+          },
+          move: (point) => sim?.updateDragTarget(point),
+          end: () => sim?.endDrag(),
+        },
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "WebGL initialization failed");
@@ -59,7 +86,6 @@ export function SceneView(props: SceneProps) {
       lastReset = current.current.reset,
       lastPush = current.current.push,
       lastFront = current.current.front,
-      sim: RagdollSimulation | undefined,
       loadingPhysics = false,
       physicsFailed = false,
       visible = true;
@@ -73,6 +99,7 @@ export function SceneView(props: SceneProps) {
     window.__JOINT_LAB__ = () => snapshot;
     const observer = new IntersectionObserver((entries) => {
       visible = entries[0]?.isIntersecting ?? true;
+      if (!visible) render.cancelInteraction();
     });
     observer.observe(host.current);
     const startPhysics = async () => {
@@ -81,7 +108,9 @@ export function SceneView(props: SceneProps) {
       setPhysicsError("");
       try {
         const { createRagdollSimulation } = await import("../engine/ragdoll");
-        const next = await createRagdollSimulation();
+        const next = await createRagdollSimulation({
+          selfCollision: current.current.settings.selfCollision !== 0,
+        });
         if (!alive) {
           next.dispose();
           return;
@@ -104,6 +133,7 @@ export function SceneView(props: SceneProps) {
         dt = Math.min((now - last) / 1000, 0.05);
       last = now;
       if (p.id !== lastId) {
+        render.cancelInteraction();
         time = 0;
         accumulator = 0;
         lastPush = p.push;
@@ -116,6 +146,7 @@ export function SceneView(props: SceneProps) {
         p.onSnapshot(snapshot);
       }
       if (p.reset !== lastReset) {
+        render.cancelInteraction();
         time = 0;
         accumulator = 0;
         lastPush = p.push;
@@ -129,6 +160,15 @@ export function SceneView(props: SceneProps) {
         render.home(p.front);
         lastFront = p.front;
       }
+      if (
+        (p.id === "ragdoll" && !p.playing) ||
+        !p.visible ||
+        !visible ||
+        document.hidden
+      )
+        render.cancelInteraction();
+      if (p.id === "ragdoll" && sim)
+        sim.setSelfCollision(p.settings.selfCollision !== 0);
       if (p.push !== lastPush && p.id === "ragdoll" && sim) {
         sim?.applyImpulse({ x: p.settings.push ?? 2, y: 0.5, z: 1 });
         lastPush = p.push;
@@ -152,11 +192,24 @@ export function SceneView(props: SceneProps) {
         if (p.id === "ragdoll" && sim) {
           const bodies = sim.getBodies(),
             m = sim.getMetrics();
-          render.setRagdoll(bodies, p.construction, sim.getJoints());
+          const drag = sim.getDragState(),
+            selfContacts = sim.getSelfContacts();
+          render.setRagdoll(
+            bodies,
+            p.construction,
+            sim.getJoints(),
+            drag,
+            selfContacts,
+            p.playing,
+          );
+
           snapshot = {
             time,
             metrics: {
               contacts: m.groundContactCount,
+              selfContacts: m.selfContactCount,
+              pulledBody: drag?.bodyId ?? "released",
+              ...(drag ? { pullForce: drag.forceMagnitude } : {}),
               jointError: m.maxJointError,
               energy: m.kineticEnergy,
               sleeping: m.sleepingCount,
@@ -168,6 +221,9 @@ export function SceneView(props: SceneProps) {
             ]),
             frames: ++frames,
             status: "physics",
+            drag,
+            selfContacts,
+            bodies,
           };
         } else if (p.id !== "ragdoll") {
           const f = makeFrame(
@@ -199,8 +255,9 @@ export function SceneView(props: SceneProps) {
       alive = false;
       cancelAnimationFrame(raf);
       observer.disconnect();
-      sim?.dispose();
       render.dispose();
+      sim?.dispose();
+      sim = undefined;
       delete window.__JOINT_LAB__;
     };
   }, []);

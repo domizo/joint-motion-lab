@@ -24,23 +24,25 @@ For the browser suite, first install its browser with `npx playwright install ch
 
 ## Nine experiments
 
-| Experiment        | Implementation                                                                                    |
-| ----------------- | ------------------------------------------------------------------------------------------------- |
-| FK                | Parent-local quaternion composition, inherited rotations and local-axis helpers                   |
-| Two-bone IK       | Analytic triangle solve, pole plane, reach clamping and deterministic singular fallback           |
-| Chain solvers     | CCD and FABRIK from identical seeds, live error and iteration budget                              |
-| Spline IK         | Catmull–Rom curve, arc-length sampling, parallel-transport frames and distributed twist           |
-| IK/FK blend       | Local quaternion SLERP, FK evaluation and explicit pose matching in both directions               |
-| Hand contact      | Fixed world-space target, moving shoulder, lock toggle and reach error                            |
-| Walking           | Procedural stance/swing targets, planted world-space feet, leg IK and reach-aware pelvis height   |
-| Joint constraints | Local swing/twist decomposition and angular clamping, requested/limited comparison                |
-| Ragdoll           | Genuine Rapier rigid bodies, colliders, spherical and revolute joints, gravity and floor contacts |
+| Experiment        | Implementation                                                                                             |
+| ----------------- | ---------------------------------------------------------------------------------------------------------- |
+| FK                | Parent-local quaternion composition, inherited rotations and local-axis helpers                            |
+| Two-bone IK       | Analytic triangle solve, pole plane, reach clamping and deterministic singular fallback                    |
+| Chain solvers     | CCD and FABRIK from identical seeds, live error and iteration budget                                       |
+| Spline IK         | Catmull–Rom curve, arc-length sampling, parallel-transport frames and distributed twist                    |
+| IK/FK blend       | Local quaternion SLERP, FK evaluation and explicit pose matching in both directions                        |
+| Hand contact      | Fixed world-space target, moving shoulder, lock toggle and reach error                                     |
+| Walking           | Procedural stance/swing targets, planted world-space feet, leg IK and reach-aware pelvis height            |
+| Joint constraints | Local swing/twist decomposition and angular clamping, requested/limited comparison                         |
+| Ragdoll           | Genuine Rapier bodies, surface-point spring dragging, selective self-collision, joints and ground contacts |
 
 The Guide contains original English/Japanese explanations, formulas, parameter experiments, failure cases, diagrams generated from the current settings (plus a labeled static ragdoll schematic), and primary-source links. The language switch changes both the lab and the guide. Every experiment has a direct URL, such as `?demo=spline&view=guide&lang=en`.
 
 ## Interaction
 
 - Green IK target: drag directly, including touch; empty viewport: orbit; wheel/pinch: zoom
+- Ragdoll: grab any visible body surface with mouse or one finger to pull through a bounded physical spring. The plane faces the camera at the original picked depth; orbit before grabbing to change depth direction. Pausing ends a pull and disables new grabs until Play
+- Self-collision defaults on. Head/chest contact is enabled; other directly joined limb/spine pairs are filtered. Orange construction markers and Body contacts show actual body/body contacts separately from the floor
 - Play/pause, reset, playback speed, construction visibility, per-experiment parameters
 - Space toggles playback and R resets when focus is outside an interactive control
 - Reduced-motion preference starts paused
@@ -66,6 +68,6 @@ Three.js 0.180.0 and Rapier 0.19.3 are pinned by the lockfile. React/Vite provid
 
 This is an educational first release, not a production character-rigging package. All geometry is procedural. There is no skinning, character importing, keyframe editor, animation export, retargeting, active physical balance, or full animation-to-ragdoll transition system.
 
-The first eight experiments are kinematic or geometric. Hand and foot targets do not exert forces. Only the ragdoll is a dynamics simulation. The spline follows equal arc lengths but does not enforce exact bone/chord lengths. Matching positions and bend direction does not preserve arbitrary joint twist or end-effector orientation. The pole fallback is deterministic rather than history-stabilized. Ragdoll spherical joints are unrestricted, and the numerical contact/constraint solver can produce small penetration or larger errors under strong impulses.
+The first eight experiments are kinematic or geometric. Hand and foot targets do not exert forces. Only the ragdoll is a dynamics simulation. The spline follows equal arc lengths but does not enforce exact bone/chord lengths. Matching positions and bend direction does not preserve arbitrary joint twist or end-effector orientation. The pole fallback is deterministic rather than history-stabilized. Ragdoll spherical joints are unrestricted; head/chest collision prevents the former sustained neck overlap, but this is not an anatomical neck-angle limit. The numerical contact/constraint solver can produce transient penetration or larger errors under strong impulses. The pull is force-, extension-, and target-speed-limited, so the simulated anchor can lag the pointer.
 
 See [primary references and scope](docs/REFERENCE_SOURCES.md) and [verification record](docs/VERIFICATION.md).

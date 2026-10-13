@@ -4,6 +4,7 @@ Checked on 2026-10-13. The guide is original English and Japanese teaching copy,
 
 ## Library documentation
 
+- [Three.js Raycaster](https://threejs.org/docs/pages/Raycaster.html): picking the nearest visible body surface and retrieving its intersection point
 - [Three.js Object3D](https://threejs.org/docs/pages/Object3D.html): local and world transforms, parent relationships, matrices, and quaternion access
 - [Three.js Quaternion](https://threejs.org/docs/pages/Quaternion.html): ordered quaternion multiplication, unit-vector alignment, and spherical interpolation
 - [Three.js Curve](https://threejs.org/docs/pages/Curve.html): arc-length mapping, spaced samples, tangents, and cache invalidation
@@ -12,6 +13,9 @@ Checked on 2026-10-13. The guide is original English and Japanese teaching copy,
 - [Rapier colliders](https://rapier.rs/docs/user_guides/javascript/colliders/): collision geometry, material properties, and physical mass contribution
 - [Rapier joints](https://rapier.rs/docs/user_guides/javascript/joints/): local anchors, permitted degrees of freedom, spherical joints, and revolute joints
 - [Rapier integration parameters](https://rapier.rs/docs/user_guides/javascript/integration_parameters/): timestep and iterative-solver accuracy trade-offs
+- [Rapier forces and impulses](https://rapier.rs/docs/user_guides/javascript/rigid_body_forces_and_impulses/): force versus impulse, off-centre application, and persistent-force lifecycle
+- [Rapier RigidBody API](https://rapier.rs/javascript3d/classes/RigidBody.html): `applyImpulseAtPoint`, `velocityAtPoint`, and effective inverse mass/inertia used by the surface-grab spring
+- [Rapier ImpulseJoint API](https://rapier.rs/javascript3d/classes/ImpulseJoint.html#setContactsEnabled): contact filtering between bodies connected by a joint
 
 These pages were opened successfully. Library documentation is rolling; the project’s package lock, rather than the date of a web page, determines its actual runtime versions.
 
@@ -52,3 +56,15 @@ These pages were opened successfully. Archived Autodesk material is cited for st
 - The walking model is procedural target generation with leg IK. Its appearance does not establish physical balance
 - The constraints panel demonstrates swing–twist limits; the ragdoll provides actual revolute elbow and knee joints
 - The ragdoll uses Rapier dynamics, colliders, and joints. It does not claim anatomical fidelity, active balance, or a full animation/physics transition system
+
+## Ragdoll surface pulling and self-collision
+
+The English and Japanese ragdoll chapter describes the local implementation, rather than implying that the documented library APIs alone supply a complete picking or spring system. The additional official pages above were opened successfully on 2026-10-13; point impulse, point velocity, and joint-contact methods were checked against the API documentation. Runtime behavior remains tied to the pinned Rapier 0.19.3 and Three.js 0.180.0 packages.
+
+- Surface dragging stores a body-local anchor and pulls its world-space position with a mass-and-inertia-aware implicit spring. Point velocity includes rotational motion. One point impulse is applied per 1/120-second physics step, without setting the body's pose or leaving a persistent user force after release
+- The spring uses 1200 N/m stiffness, 75 N·s/m damping, a 1.5 m elastic-extension cap, and a 900 N cap on equivalent step force. The requested pointer target is clamped inside the physical enclosure; the physical spring target follows it with a 6 m/s speed limit and may lag a sudden pointer move. The capped elastic extension is measured from this physical target to the anchor. These bounds improve controllability; they do not promise exact target tracking or zero penetration
+- Mouse or single-pointer touch dragging works on visible body surfaces while playing. The pointer target stays on a camera-facing plane through the original hit, fixed for that grab. Empty-space dragging orbits. Release and reorient the camera before grabbing again to change the pulling plane
+- Release, cancellation, loss of window focus, Pause, Reset, Guide navigation, scene changes, and a hidden/offscreen viewport end the grab. A paused ragdoll cannot start a new grab
+- Self-collision is enabled by default for nonadjacent parts. Head/chest is a deliberate exception among joint-connected pairs: allowing its contacts prevents the free neck from having no contact response when the head folds into the chest. Other directly joined limb and spine pairs remain collision-filtered because their overlapping shapes near joint anchors can create conflicting constraints
+- The body-contact metric and orange construction markers represent touching body/body solver contact points, separately from floor contacts. Points are not body-pair counts, and zero points at an instant does not establish that filtering is off
+- Turning self-collision off intentionally permits body/body interpenetration, including head/chest, while retaining environment contact. Turning it on does not enable every adjacent pair or remove transient numerical penetration under strong pulling. The free neck has no anatomical angular limits; the demonstration is not a production anatomical ragdoll

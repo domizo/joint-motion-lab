@@ -311,13 +311,21 @@ export default function App() {
                   {front ? "3D" : "Front"}
                 </button>
                 <span>
-                  {needsTarget
+                  {id === "ragdoll"
                     ? language === "ja"
-                      ? "緑をドラッグ · 余白で視点を回転"
-                      : "Drag green target · orbit the empty space"
-                    : language === "ja"
-                      ? "ドラッグで回転 · スクロールで拡大"
-                      : "Drag to orbit · scroll to zoom"}
+                      ? playing
+                        ? "体を引っ張る · 余白で回転"
+                        : "再生すると体を引っ張れます"
+                      : playing
+                        ? "Pull any body part · orbit empty space"
+                        : "Press Play to pull the body"
+                    : needsTarget
+                      ? language === "ja"
+                        ? "緑をドラッグ · 余白で視点を回転"
+                        : "Drag green target · orbit the empty space"
+                      : language === "ja"
+                        ? "ドラッグで回転 · スクロールで拡大"
+                        : "Drag to orbit · scroll to zoom"}
                 </span>
               </div>
               <div className="transport">
@@ -412,6 +420,20 @@ export default function App() {
                         : "Equal arc-length spacing"}
                     </label>
                   )}
+                  {id === "ragdoll" && (
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={p.selfCollision !== 0}
+                        onChange={(e) =>
+                          setParam("selfCollision", Number(e.target.checked))
+                        }
+                      />
+                      {language === "ja"
+                        ? "セルフコリジョン"
+                        : "Self-collision"}
+                    </label>
+                  )}
                   {id === "contact" && (
                     <label>
                       <input
@@ -443,7 +465,7 @@ export default function App() {
                   <button
                     className="button lime"
                     onClick={() => setPush((n) => n + 1)}
-                    disabled={snapshot.status !== "physics"}
+                    disabled={snapshot.status !== "physics" || !playing}
                   >
                     {ui.push[language]}
                     <Arrow />

@@ -194,16 +194,16 @@ export const demos: Demo[] = [
     id: "ragdoll",
     title: words("Ragdoll physics", "Ragdoll Physics"),
     lead: words(
-      "Let gravity take over. Joints hold the body together.",
-      "重力に任せる。関節が体をつなぎ止める。",
+      "Grab a body part. Pull, release, and watch the response.",
+      "体の好きな場所をつかむ。引っ張って、離してみる。",
     ),
     panel: words("Rapier rigid bodies", "Rapier 剛体シミュレーション"),
     note: words(
-      "Real rigid bodies, joint constraints and floor collisions, stepped at 120 Hz. Adjacent-body collision is disabled; shoulders and hips are free spherical joints.",
-      "120 Hz の固定刻みで、剛体・関節拘束・床との衝突を計算。隣り合う部位同士の衝突は無効。肩と股関節は角度制限なしの球関節です。",
+      "Drag any body surface while playing to pull with a bounded spring. Empty space orbits the camera. Self-collision covers nonadjacent parts and head/chest; other joined pairs stay filtered. Orange construction markers show body contacts.",
+      "再生中に体の表面をドラッグすると、上限のあるばねで引っ張れます。空いている場所ではカメラが回転。自己衝突は非隣接部位と頭・胸が対象で、ほかの接続ペアは除外します。オレンジ色の補助表示は身体同士の接触点です。",
     ),
     controls: [c("push", "Push strength", "押す強さ", 0, 5, 0.1)],
-    defaults: { push: 2 },
+    defaults: { push: 2, selfCollision: 1 },
   },
 ];
 export const getDemo = (id: string) =>

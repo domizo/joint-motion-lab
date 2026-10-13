@@ -26,7 +26,17 @@ import {
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { Frame } from "./frame";
-import type { RagdollBodyState } from "./ragdoll";
+import type {
+  RagdollBodyState,
+  RagdollBodyId,
+  RagdollDragState,
+  RagdollSelfContact,
+} from "./ragdoll";
+export interface RagdollDragHandlers {
+  begin: (id: RagdollBodyId, point: Vector3) => boolean;
+  move: (point: Vector3) => void;
+  end: () => void;
+}
 import { V, terrainHeight } from "./kinematics";
 export class LabRenderer {
   readonly renderer: WebGLRenderer;
@@ -50,6 +60,11 @@ export class LabRenderer {
   private target?: Vector3;
   private targetMarker?: Mesh;
   private drag = false;
+  private ragdollDragging = false;
+  private ragdollDragEnabled = false;
+  private pointerId: number | undefined;
+  private dragIndicator: Mesh;
+  private contactMarkers: Mesh[] = [];
   private disposed = false;
   private focus = V(0.35, 1.3);
   private resize: ResizeObserver;
@@ -59,6 +74,7 @@ export class LabRenderer {
   constructor(
     readonly host: HTMLElement,
     readonly onTarget: (x: number, y: number) => void,
+    readonly onRagdollDrag?: RagdollDragHandlers,
   ) {
     this.renderer = new WebGLRenderer({
       antialias: true,
@@ -74,6 +90,7 @@ export class LabRenderer {
       "Interactive 3D joint demonstration",
     );
     this.renderer.domElement.setAttribute("role", "img");
+    this.renderer.domElement.tabIndex = 0;
     this.renderer.domElement.dataset.webgl = "ready";
     host.appendChild(this.renderer.domElement);
     this.scene.fog = new Fog(0xf5f6f1, 14, 32);
@@ -100,6 +117,10 @@ export class LabRenderer {
     this.contactPlatform.receiveShadow = true;
     this.contactPlatform.visible = false;
     this.scene.add(this.contactPlatform);
+    this.dragIndicator = new Mesh(this.sphere, this.material(0xe9a34b));
+    this.dragIndicator.scale.setScalar(0.065);
+    this.dragIndicator.visible = false;
+    this.scene.add(this.dragIndicator);
     this.grid = new GridHelper(80, 160, 0x9aab8a, 0xb7c4aa);
     this.grid.position.y = 0.002;
     this.scene.add(this.grid);
@@ -127,6 +148,9 @@ export class LabRenderer {
     this.renderer.domElement.addEventListener("pointermove", this.move);
     this.renderer.domElement.addEventListener("pointerup", this.up);
     this.renderer.domElement.addEventListener("pointercancel", this.up);
+    this.renderer.domElement.addEventListener("lostpointercapture", this.up);
+    window.addEventListener("blur", this.cancelInteraction);
+    document.addEventListener("visibilitychange", this.visibilityChanged);
   }
   private material(color: number, ghost = false) {
     const key = color + "-" + ghost;
@@ -167,9 +191,42 @@ export class LabRenderer {
       this.camera,
     );
   }
+  private bodyHit() {
+    return this.ray.intersectObjects(
+      [...this.bodies.values()].filter((m) => m.visible),
+      false,
+    )[0];
+  }
   private down = (e: PointerEvent) => {
-    if (!this.targetMarker || !this.target) return;
+    if (this.pointerId !== undefined) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
+    if (e.button !== 0) return;
     this.pointer(e);
+    if (this.ragdollDragEnabled) {
+      const hit = this.bodyHit();
+      if (
+        hit &&
+        this.onRagdollDrag?.begin(hit.object.userData.bodyId, hit.point)
+      ) {
+        this.renderer.domElement.focus({ preventScroll: true });
+        this.ragdollDragging = true;
+        this.pointerId = e.pointerId;
+        this.orbit.enabled = false;
+        this.plane.setFromNormalAndCoplanarPoint(
+          this.camera.getWorldDirection(V()),
+          hit.point,
+        );
+        this.renderer.domElement.setPointerCapture(e.pointerId);
+        this.renderer.domElement.style.cursor = "grabbing";
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
+    }
+    if (!this.targetMarker || !this.target) return;
     const hit = this.ray.intersectObject(this.targetMarker);
     const rect = this.renderer.domElement.getBoundingClientRect(),
       projected = this.target.clone().project(this.camera),
@@ -178,15 +235,22 @@ export class LabRenderer {
     const touchHit = Math.hypot(e.clientX - px, e.clientY - py) <= 22;
     if (hit.length || touchHit) {
       this.drag = true;
+      this.pointerId = e.pointerId;
       this.orbit.enabled = false;
       this.renderer.domElement.setPointerCapture(e.pointerId);
       this.plane.set(V(0, 0, 1), -this.target.z);
+      e.preventDefault();
       e.stopImmediatePropagation();
     }
   };
   private move = (e: PointerEvent) => {
+    if (this.pointerId !== undefined && e.pointerId !== this.pointerId) return;
     this.pointer(e);
-    if (this.drag) {
+    if (this.ragdollDragging) {
+      const point = this.ray.ray.intersectPlane(this.plane, V());
+      if (point) this.onRagdollDrag?.move(point);
+      e.preventDefault();
+    } else if (this.drag) {
       const point = this.ray.ray.intersectPlane(this.plane, V());
       if (point)
         this.onTarget(
@@ -195,15 +259,38 @@ export class LabRenderer {
         );
     } else {
       const hit =
-        this.targetMarker && this.ray.intersectObject(this.targetMarker).length;
+        (this.ragdollDragEnabled && this.bodyHit()) ||
+        (this.targetMarker &&
+          this.ray.intersectObject(this.targetMarker).length);
       this.renderer.domElement.style.cursor = hit ? "grab" : "default";
     }
   };
-  private up = () => {
+  private up = (event: PointerEvent) => {
+    if (this.pointerId === event.pointerId) this.cancelInteraction();
+  };
+  private visibilityChanged = () => {
+    if (document.hidden) this.cancelInteraction();
+  };
+  cancelInteraction = () => {
+    const pointer = this.pointerId;
+    this.pointerId = undefined;
     this.drag = false;
+    this.ragdollDragging = false;
+    this.onRagdollDrag?.end();
     this.orbit.enabled = true;
+    this.renderer.domElement.style.cursor = "default";
+    if (
+      pointer !== undefined &&
+      this.renderer.domElement.hasPointerCapture(pointer)
+    )
+      this.renderer.domElement.releasePointerCapture(pointer);
   };
   setFrame(f: Frame) {
+    if (this.ragdollDragging) this.cancelInteraction();
+    this.ragdollDragEnabled = false;
+    this.dragIndicator.visible = false;
+    this.contactMarkers.forEach((m) => (m.visible = false));
+    delete this.renderer.domElement.dataset.bodyTargets;
     this.bodies.forEach((m) => (m.visible = false));
     this.target = f.target;
     this.targetMarker = undefined;
@@ -287,7 +374,12 @@ export class LabRenderer {
       anchorA: { x: number; y: number; z: number };
       anchorB: { x: number; y: number; z: number };
     }[],
+    drag: RagdollDragState | null,
+    contacts: RagdollSelfContact[],
+    dragEnabled: boolean,
   ) {
+    this.ragdollDragEnabled = dragEnabled;
+    if (!dragEnabled && this.ragdollDragging) this.cancelInteraction();
     this.bones.forEach((m) => (m.visible = false));
     this.markers.forEach((m) => (m.visible = false));
     this.target = undefined;
@@ -308,10 +400,18 @@ export class LabRenderer {
           this.material(b.id === "chest" ? 0xb8d955 : 0x434d47),
         );
         mesh.castShadow = true;
+        mesh.userData.bodyId = b.id;
         this.stage.add(mesh);
         this.bodies.set(b.id, mesh);
       }
       mesh.visible = true;
+      mesh.material = this.material(
+        drag?.bodyId === b.id
+          ? 0xe9a34b
+          : b.id === "chest"
+            ? 0xb8d955
+            : 0x434d47,
+      );
       mesh.position.set(b.position.x, b.position.y, b.position.z);
       mesh.quaternion.set(
         b.rotation.x,
@@ -336,17 +436,49 @@ export class LabRenderer {
         marker.scale.setScalar(0.045);
         marker.position.set(joint.anchorA.x, joint.anchorA.y, joint.anchorA.z);
       });
-    this.updateLines(
-      construction
-        ? joints.map((j) => ({
-            points: [
-              V(j.anchorA.x, j.anchorA.y, j.anchorA.z),
-              V(j.anchorB.x, j.anchorB.y, j.anchorB.z),
-            ],
-            color: 0x967be1,
-          }))
-        : [],
-    );
+    const lines = construction
+      ? joints.map((j) => ({
+          points: [
+            V(j.anchorA.x, j.anchorA.y, j.anchorA.z),
+            V(j.anchorB.x, j.anchorB.y, j.anchorB.z),
+          ],
+          color: 0x967be1,
+        }))
+      : [];
+    this.dragIndicator.visible = !!drag;
+    if (drag) {
+      const anchor = V(
+          drag.worldAnchor.x,
+          drag.worldAnchor.y,
+          drag.worldAnchor.z,
+        ),
+        target = V(
+          drag.springTarget.x,
+          drag.springTarget.y,
+          drag.springTarget.z,
+        ),
+        requested = V(drag.target.x, drag.target.y, drag.target.z);
+      this.dragIndicator.position.copy(target);
+      lines.push({ points: [anchor, target], color: 0xe39a39 });
+      if (target.distanceTo(requested) > 0.025)
+        lines.push({ points: [target, requested], color: 0xc7b390 });
+    }
+    this.updateLines(lines);
+    const shownContacts = construction ? contacts : [];
+    shownContacts.forEach((contact, i) => {
+      let marker = this.contactMarkers[i];
+      if (!marker) {
+        marker = new Mesh(this.sphere, this.material(0xe27343));
+        marker.scale.setScalar(0.038);
+        this.scene.add(marker);
+        this.contactMarkers.push(marker);
+      }
+      marker.visible = true;
+      marker.position.set(contact.point.x, contact.point.y, contact.point.z);
+    });
+    this.contactMarkers
+      .slice(shownContacts.length)
+      .forEach((m) => (m.visible = false));
     this.follow(V(0, 1));
   }
   private follow(focus: Vector3) {
@@ -358,6 +490,7 @@ export class LabRenderer {
     this.grid.position.x = Math.floor(focus.x / 2) * 2;
   }
   home(front = false) {
+    this.cancelInteraction();
     this.orbit.target.copy(this.focus);
     this.camera.position
       .copy(this.focus)
@@ -370,7 +503,24 @@ export class LabRenderer {
   }
   render() {
     if (this.disposed) return;
-    this.orbit.update();
+    if (!this.ragdollDragging) this.orbit.update();
+    this.camera.updateMatrixWorld();
+    this.renderer.domElement.dataset.camera = this.camera.position
+      .toArray()
+      .join(",");
+    const bodyTargets: Record<string, { x: number; y: number }> = {};
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    for (const [id, mesh] of this.bodies) {
+      if (!mesh.visible) continue;
+      const screen = mesh.position.clone().project(this.camera);
+      bodyTargets[id] = {
+        x: ((screen.x + 1) * rect.width) / 2,
+        y: ((1 - screen.y) * rect.height) / 2,
+      };
+    }
+    if (Object.keys(bodyTargets).length)
+      this.renderer.domElement.dataset.bodyTargets =
+        JSON.stringify(bodyTargets);
     if (this.target) {
       const screen = this.target.clone().project(this.camera),
         rect = this.renderer.domElement.getBoundingClientRect();
@@ -389,6 +539,7 @@ export class LabRenderer {
     this.renderer.domElement.dataset.frames = String(this.frames);
   }
   dispose() {
+    this.cancelInteraction();
     this.disposed = true;
     this.resize.disconnect();
     this.orbit.dispose();
@@ -400,6 +551,9 @@ export class LabRenderer {
     this.renderer.domElement.removeEventListener("pointermove", this.move);
     this.renderer.domElement.removeEventListener("pointerup", this.up);
     this.renderer.domElement.removeEventListener("pointercancel", this.up);
+    this.renderer.domElement.removeEventListener("lostpointercapture", this.up);
+    window.removeEventListener("blur", this.cancelInteraction);
+    document.removeEventListener("visibilitychange", this.visibilityChanged);
     this.scene.traverse((o) => {
       if (o instanceof Mesh || o instanceof ThreeLine) {
         o.geometry.dispose();

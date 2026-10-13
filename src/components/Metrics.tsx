@@ -25,11 +25,30 @@ const labels: Record<string, [string, string]> = {
   limit: ["Swing limit", "スイング上限"],
   status: ["Constraint", "制約"],
   contacts: ["Floor contacts", "床との接触点"],
+  selfContacts: ["Body contacts", "身体同士の接触点"],
+  pulledBody: ["Grabbed part", "つかんだ部位"],
+  pullForce: ["Pull force", "引く力"],
   jointError: ["Joint error", "関節誤差"],
   energy: ["Kinetic energy", "運動エネルギー"],
   sleeping: ["Sleeping bodies", "休止中の剛体"],
 };
 const values: Record<string, [string, string]> = {
+  released: ["Released", "なし"],
+  pelvis: ["Pelvis", "骨盤"],
+  chest: ["Chest", "胸"],
+  head: ["Head", "頭"],
+  leftUpperArm: ["Left upper arm", "左上腕"],
+  rightUpperArm: ["Right upper arm", "右上腕"],
+  leftForearm: ["Left forearm", "左前腕"],
+  rightForearm: ["Right forearm", "右前腕"],
+  leftHand: ["Left hand", "左手"],
+  rightHand: ["Right hand", "右手"],
+  leftThigh: ["Left thigh", "左太もも"],
+  rightThigh: ["Right thigh", "右太もも"],
+  leftShin: ["Left shin", "左すね"],
+  rightShin: ["Right shin", "右すね"],
+  leftFoot: ["Left foot", "左足"],
+  rightFoot: ["Right foot", "右足"],
   reachable: ["Reachable", "到達可能"],
   unreachable: ["Out of reach", "範囲外"],
   fallback: ["Singular fallback", "特異点の代替処理"],
@@ -55,10 +74,15 @@ export function metricValue(
 ) {
   if (typeof value === "string")
     return values[value]?.[lang === "en" ? 0 : 1] ?? value;
-  if (["bones", "iterations", "contacts", "sleeping"].includes(key))
+  if (
+    ["bones", "iterations", "contacts", "selfContacts", "sleeping"].includes(
+      key,
+    )
+  )
     return String(value);
   if (["bend", "swing", "twist", "limit"].includes(key))
     return `${value.toFixed(0)}°`;
+  if (key === "pullForce") return `${value.toFixed(0)} N`;
   if (key === "energy") return `${value.toFixed(2)} J`;
   return value.toFixed(3);
 }

@@ -693,69 +693,95 @@ export const guideChapters: Record<GuideId, GuideChapter> = {
   ragdoll: {
     id: "ragdoll",
     en: {
-      title: "Ragdoll: let forces determine the motion",
-      lead: "A physics ragdoll is an assembly of dynamic rigid bodies, collision shapes, and joint constraints. Rapier advances this system over time; the visible bones follow the simulated bodies.",
+      title: "Ragdoll: pull a body, feel the connections",
+      lead: "A physics ragdoll is an assembly of dynamic bodies, colliders, and joint constraints. Grab a visible hand, foot, torso, or head surface: a bounded spring pulls that point while gravity, inertia, joints, and collisions determine the motion.",
       steps: [
         {
           title: "Give each part physical state",
           why: "A falling pose needs velocity, mass, and angular inertia, not just animated joint angles.",
-          how: "Create dynamic bodies and attach colliders with appropriate shape and density. Use a fixed body and collider for the floor. Bodies without colliders have no shape for contact detection.",
+          how: "Attach box, capsule, or sphere colliders to dynamic bodies and give them mass. The floor has a fixed collider. Render the poses produced by Rapier at a fixed 1/120-second simulation step; dragging never teleports a body.",
         },
         {
           title: "Connect bodies with physical joints",
           why: "Independent bodies would fall apart; visual parenting does not make a physical articulation.",
-          how: "Define joint anchors in each body’s local coordinates. A spherical joint joins anchor positions while permitting rotation; a revolute joint leaves one rotational axis. Choose limits and adjacent-body collision filtering deliberately.",
+          how: "Define anchors in each body's local coordinates. Spherical joints keep anchors together while allowing rotation. Elbows, knees, and ankles use limited revolute joints. The neck, shoulders, hips, wrists, and spine have free spherical rotation, without anatomical angular limits.",
         },
         {
-          title: "Step physics, then copy its result",
-          why: "Overwriting dynamic-body transforms every frame fights the physics solver.",
-          how: "Advance Rapier on a fixed simulation step and render its body positions and rotations, accounting for mesh offsets. Gravity, impulses, joint responses, and floor contacts now determine the motion. Resetting is a deliberate reinitialization.",
+          title: "Grab the surface, not the body centre",
+          why: "An off-centre pull should turn a body as well as move it. A fixed local anchor keeps the grip attached as the body rotates.",
+          how: "While playing, use a mouse or one finger to pick a visible surface. Raycasting finds the hit and stores it in body-local coordinates. The pointer target moves on a camera-facing plane through the original hit, so its depth stays fixed for that grab. Drag empty space to orbit; release and rotate the camera before grabbing again to change the pulling plane.",
+        },
+        {
+          title: "Pull with a damped, bounded spring",
+          why: "Snapping a dynamic body to the pointer would bypass inertia and fight its contacts and joints. Damping must use the velocity at the grabbed point, including rotation.",
+          how: "Each fixed step solves an implicit spring response using mass and angular inertia, then applies its impulse at the moving anchor. Stiffness is 1200 N/m and damping is 75 N·s/m; elastic extension is capped at 1.5 m and the equivalent step force at 900 N. The requested pointer target is clamped inside the enclosure; the physical spring target follows it at up to 6 m/s, so sudden pointer jumps can leave it behind. The grabbed part and its pull line are amber. Releasing stops the spring; existing momentum continues.",
+        },
+        {
+          title: "Choose which body parts can collide",
+          why: "Joined shapes may overlap near their anchors, so enabling every adjacent pair can make joint and contact constraints fight. But filtering the head/chest pair would let the free neck fold the head into the chest with no contact response.",
+          how: "Self-collision starts on. Nonadjacent parts collide, and head/chest is a deliberate exception that also collides despite the neck joint. Other directly joined limb and spine pairs remain filtered for stability. Body-contact counts and orange markers under Show construction come from touching solver contact points, counted separately from the floor. Turning self-collision off intentionally lets body parts pass through one another; floor contact remains active.",
         },
       ],
       formula:
-        "motion state + forces + contacts + joint constraints → fixed physics step → new body poses",
+        "Ideal spring: F = k·e − c·vAnchor; e = clampLength(springTarget − anchor, 1.5 m); |Jstep| ≤ 900 N × (1/120 s)",
       formulaNote:
-        "Joint and contact constraints are solved numerically. They are not exact geometric promises at every intermediate solver iteration.",
+        "The ideal force explains the spring. The implementation uses an implicit, mass-and-inertia-aware solve before capping the step impulse Jstep. Displayed force is Jstep / dt. Contacts and joints are numerical constraints, so neither the force cap nor the fixed timestep guarantees zero penetration.",
       observe: [
-        "Release the assembly and watch gravity, floor collisions, and the linked parts influence one another.",
-        "Apply an impulse and compare it with directly dragging a pose. Momentum and collision response continue after the impulse.",
+        "Pull a hand, foot, head, and torso in turn. Compare how the rest of the body follows. Grip near an edge to see the off-centre torque, then release and watch the motion continue.",
+        "Bring the head toward the chest with self-collision on. Inspect the body-contact count and orange construction markers. A count of zero means no touching solver points at that instant, not that self-collision is disabled.",
+        "Reset and compare self-collision on and off. Nonadjacent parts and the head/chest pair respond to contact only when it is on; other directly joined pairs stay excluded in both modes.",
+        "Paused? Press Play before grabbing. Release, pointer cancellation, loss of window focus, Pause, Reset, opening the Guide, changing experiments, or a hidden/offscreen viewport ends a grab; returning does not resume the old pull.",
       ],
       failures: [
-        "Overlapping initial colliders, mismatched anchors, extreme mass ratios, or a large timestep can create jitter or explosive motion. Increase accuracy only after checking the setup.",
-        "Free spherical joints are not anatomical shoulders or knees. This educational ragdoll does not include muscle control, active balance, recovery, or a production animation-to-physics transition.",
+        "A strong or sudden pull can produce temporary penetration or joint error because contacts and joints are solved in finite numerical steps. Larger errors can also come from overlapping initial colliders, mismatched anchors, or extreme mass ratios. Inspect the setup before increasing solver work.",
+        "Collision filtering is selective, not an all-pairs no-overlap guarantee. Excluded adjacent parts can interpenetrate even with self-collision on. With it off, the head can also enter the torso intentionally.",
+        "Free spherical joints and simple collision shapes do not reproduce an anatomical neck or natural posture. This educational ragdoll has no muscle control, active balance, recovery, or production animation-to-physics transition. A bounded spring may lag behind the pointer and cannot reach every requested target.",
       ],
     },
     ja: {
-      title: "ラグドール：力から動きを決める",
-      lead: "物理ラグドールは、動的剛体、衝突形状、関節制約を組み合わせたものです。Rapierが時間とともに状態を進め、表示用のボーンはシミュレーションされた剛体に追従します。",
+      title: "ラグドール：つかんで引き、つながりを見る",
+      lead: "物理ラグドールは、動的剛体、コライダー、関節制約を組み合わせたものです。手・足・胴体・頭の見えている表面をつかむと、上限のあるばねがその点を引きます。重力、慣性、関節、衝突が全身の動きを決めます。",
       steps: [
         {
           title: "各パーツに物理状態を持たせる",
           why: "落下する姿勢を求めるには、関節角度だけでなく、速度、質量、慣性が必要です。",
-          how: "動的剛体を作り、適切な形状と密度のコライダーを取り付けます。床には固定剛体とコライダーを使います。コライダーのない剛体には、接触判定に使う形状がありません。",
+          how: "動的剛体に箱・カプセル・球のコライダーと質量を設定します。床には固定コライダーを使います。Rapierを1/120秒の固定刻みで進め、その結果の姿勢を表示します。ドラッグで剛体の位置を直接書き換えることはありません。",
         },
         {
           title: "物理ジョイントで剛体をつなぐ",
           why: "独立した剛体はばらばらに落ちます。表示上の親子関係だけでは、物理的な関節にはなりません。",
-          how: "各剛体のローカル座標でジョイントのアンカーを定義します。球関節はアンカー位置を結び、回転を許します。回転ジョイントは1本の回転軸を残します。可動域や隣接パーツ間の衝突判定は、意図して設定します。",
+          how: "各剛体のローカル座標でアンカーを定義します。球関節はアンカー位置をつなぎ、回転を許します。肘・膝・足首は可動域を持つ回転ジョイントです。首・肩・股関節・手首・背骨は自由に回転する球関節で、人体に合わせた角度制限はありません。",
         },
         {
-          title: "物理を進め、その結果を表示する",
-          why: "動的剛体の変換を毎フレーム上書きすると、物理ソルバーの計算と競合します。",
-          how: "Rapierを固定時間刻みで進め、メッシュとのオフセットを考慮して剛体の位置と回転を表示します。重力、力積、関節の応答、床との接触が動きを決めます。リセットは、状態を明示的に初期化し直す操作です。",
+          title: "中心ではなく、表面の一点をつかむ",
+          why: "中心から外れた点を引けば、移動に加えて回転も生じます。つかんだ点をローカル座標で保存すると、剛体が回っても同じ位置を握り続けられます。",
+          how: "再生中にマウスか1本の指で表面を選びます。レイキャストの交点を剛体のローカル座標に変換して保存します。目標は、最初の交点を通るカメラに正対した平面上を動くため、つかんでいる間の奥行きは固定です。空いている場所のドラッグはカメラの回転です。別の平面で引くには、一度離してカメラを回し、つかみ直します。",
+        },
+        {
+          title: "減衰と上限のあるばねで引く",
+          why: "剛体をポインター位置へ瞬間移動すると、慣性を無視して接触や関節の計算と競合します。減衰には、回転の影響も含む、つかんだ点の速度を使います。",
+          how: "固定刻みごとに質量と慣性を考慮した陰的なばね応答を解き、動くアンカー位置に力積を加えます。ばね定数は1200 N/m、減衰係数は75 N·s/m。計算に使う伸びは1.5 m、各ステップの等価な力は900 Nを上限とし、ポインターの目標も囲いの内側に制限します。物理計算に使うばねの目標は最大6 m/sで追従するため、ポインターを急に動かすと遅れが生じます。つかんだ部位と引っ張りを示す線は琥珀色になります。離すとばねの作用は止まりますが、運動量は残ります。",
+        },
+        {
+          title: "どの部位同士を衝突させるか選ぶ",
+          why: "つながった形状はアンカー付近で重なることがあり、隣接する全ペアの衝突を有効にすると、関節と接触の制約が競合します。ただし頭と胸まで除外すると、自由な首の回転で頭が胸の中へ入り、接触による反発が起きません。",
+          how: "自己衝突は初期状態でオンです。隣接しない部位同士に加え、首でつながる頭と胸も例外として衝突させます。それ以外の直接つながった四肢・背骨のペアは、安定性のため除外します。身体接触数と「補助線を表示」のオレンジ色の印は、床とは別に数えたソルバー上の接触点です。自己衝突をオフにすると部位同士は意図的にすり抜けますが、床との衝突は続きます。",
         },
       ],
       formula:
-        "運動状態 + 力 + 接触 + 関節制約 → 固定時間刻みの物理計算 → 新しい剛体姿勢",
+        "理想的なばね：F = k·e − c·vAnchor; e = clampLength(springTarget − anchor, 1.5 m); |Jstep| ≤ 900 N × (1/120 s)",
       formulaNote:
-        "関節と接触の制約は数値的に解かれます。ソルバーの反復途中まで、幾何的に完全な一致を保証するものではありません。",
+        "理想的な力の式は、ばねの考え方を示します。実装では質量と慣性を考慮した陰的計算を行い、その後で各ステップの力積Jstepに上限を設けます。表示する力はJstep / dtです。接触と関節は数値的な制約なので、力の上限や固定刻みがあっても、めり込みゼロを保証するものではありません。",
       observe: [
-        "支えを外し、重力、床との衝突、つながったパーツが互いの動きにどう影響するかを見ます。",
-        "力積を加え、姿勢を直接ドラッグする場合と比べます。力積を加えた後も、運動量と衝突の応答が続きます。",
+        "手・足・頭・胴体を順番に引き、ほかの部位の追従を比べます。端の近くをつかんで回転の効果を確かめ、離した後の動きも見ます。",
+        "自己衝突をオンにして頭を胸へ近づけ、身体接触数とオレンジ色の補助表示を見ます。接触数が0でも自己衝突が無効とは限らず、その瞬間に接しているソルバー上の点がないことを意味します。",
+        "リセットして自己衝突のオンとオフを比べます。隣接しない部位と頭・胸はオンのときだけ接触に反応します。それ以外の直接つながったペアは、どちらの設定でも除外されます。",
+        "一時停止中は、再生してからつかみます。指やボタンを離す、ポインター操作の中断、ウィンドウのフォーカス喪失、一時停止、リセット、ガイドを開く、実験の切り替え、表示領域が非表示や画面外になる操作でグリップは解除されます。戻っても以前の引っ張りは再開しません。",
       ],
       failures: [
-        "初期コライダーの重なり、アンカーのずれ、極端な質量比、大きすぎる時間刻みは、振動や急激な飛び散りの原因になります。計算精度を増やす前に設定を確認します。",
-        "自由な球関節は、人体の肩や膝をそのまま再現しません。この学習用ラグドールには、筋力制御、能動的なバランス、起き上がり、制作向けのアニメーションと物理の切り替えは含みません。",
+        "接触と関節は有限の時間刻みと反復で解くため、強い引っ張りや急な操作では、一時的なめり込みや関節のずれが生じることがあります。初期形状の重なり、アンカーのずれ、極端な質量比も、大きな誤差の原因になります。計算量を増やす前に設定を確認します。",
+        "自己衝突はペアを選んで有効にしており、全組み合わせの重なりを防ぐ保証ではありません。除外した隣接部位はオンでも重なり得ます。オフでは頭が胴体に入ることも、意図した動作です。",
+        "自由な球関節と単純な衝突形状では、人体の首や自然な姿勢までは再現できません。この学習用ラグドールには、筋力制御、能動的なバランス、起き上がり、制作向けのアニメーションと物理の切り替えはありません。力に上限のあるばねはポインターに遅れて追従し、すべての目標位置に届くわけではありません。",
       ],
     },
     citations: [
@@ -775,22 +801,26 @@ export const guideChapters: Record<GuideId, GuideChapter> = {
         label: "Rapier · Integration parameters",
         url: "https://rapier.rs/docs/user_guides/javascript/integration_parameters/",
       },
+      {
+        label: "Rapier · Forces and impulses",
+        url: "https://rapier.rs/docs/user_guides/javascript/rigid_body_forces_and_impulses/",
+      },
+      {
+        label: "Rapier · Impulse at a point",
+        url: "https://rapier.rs/javascript3d/classes/RigidBody.html#applyImpulseAtPoint",
+      },
+      {
+        label: "Rapier · Point velocity",
+        url: "https://rapier.rs/javascript3d/classes/RigidBody.html#velocityAtPoint",
+      },
+      {
+        label: "Rapier · Joint contact filtering",
+        url: "https://rapier.rs/javascript3d/classes/ImpulseJoint.html#setContactsEnabled",
+      },
+      {
+        label: "Three.js · Raycaster",
+        url: "https://threejs.org/docs/pages/Raycaster.html",
+      },
     ],
   },
 };
-
-export const guideOrder: GuideId[] = [
-  "fk",
-  "ik",
-  "chain",
-  "spline",
-  "blend",
-  "contact",
-  "walk",
-  "constraints",
-  "ragdoll",
-];
-
-export function getGuideChapter(id: GuideId, language: Language): GuideText {
-  return guideChapters[id][language];
-}

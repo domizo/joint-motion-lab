@@ -63,6 +63,11 @@ export interface RagdollMetrics {
   /** Number of real solver contact points, counting each collider pair once. */
   contactCount: number;
   groundContactCount: number;
+  selfCollisionEnabled: boolean;
+  /** Touching body/body solver points, including the collision-enabled neck pair. */
+  selfContactCount: number;
+  selfContactPairCount: number;
+  maxSelfPenetration: number;
   maxJointError: number;
   averageSpeed: number;
   maxSpeed: number;
@@ -72,11 +77,42 @@ export interface RagdollMetrics {
   centerOfMass: Vec3;
 }
 
+export interface RagdollDragState {
+  bodyId: RagdollBodyId;
+  localAnchor: Vec3;
+  worldAnchor: Vec3;
+  /** Requested pointer target, clamped inside the physical enclosure. */
+  target: Vec3;
+  /** Rate-limited physical target, in metres. */
+  springTarget: Vec3;
+  /** Force used on the last fixed step, in newtons; zero before the first step. */
+  force: Vec3;
+  forceMagnitude: number;
+  /** Elastic extension used by the spring, capped independently of the pointer. */
+  extension: number;
+  maxForce: number;
+  maxExtension: number;
+  maxTargetSpeed: number;
+}
+
+export interface RagdollSelfContact {
+  bodyA: RagdollBodyId;
+  bodyB: RagdollBodyId;
+  point: Vec3;
+  /** World-space normal, oriented from bodyA toward bodyB. */
+  normal: Vec3;
+  /** Signed solver distance in metres. Positive speculative contacts are omitted. */
+  distance: number;
+  penetration: number;
+}
+
 export interface RagdollOptions {
   /** Height added to the initial standing pose, in metres. Default 1.1. */
   spawnHeight?: number;
   /** Initial whole-body forward lean, in radians. Default 0.16. */
   tilt?: number;
+  /** Body parts collide, except joined limbs/spine. The head/chest pair collides. */
+  selfCollision?: boolean;
 }
 
 export interface RagdollSimulation {
@@ -88,6 +124,14 @@ export interface RagdollSimulation {
   reset(): void;
   /** Applies an impulse at a body's centre of mass. Magnitude is capped at 25 Ns. */
   applyImpulse(impulse?: Vec3, bodyId?: RagdollBodyId): void;
+  /** Grabs a collider point with a damped physical spring; never changes a pose. */
+  beginDrag(bodyId: RagdollBodyId, worldPoint: Vec3): void;
+  updateDragTarget(worldPoint: Vec3): void;
+  endDrag(): void;
+  getDragState(): RagdollDragState | null;
+  /** Changes collision filtering without resetting the pose. Persists across reset. */
+  setSelfCollision(enabled: boolean): void;
+  getSelfContacts(): RagdollSelfContact[];
   getBodies(): RagdollBodyState[];
   getJoints(): RagdollJointState[];
   getMetrics(): RagdollMetrics;
@@ -129,7 +173,16 @@ interface Connection {
 const V = (x = 0, y = 0, z = 0): Vec3 => ({ x, y, z });
 const add = (a: Vec3, b: Vec3): Vec3 => V(a.x + b.x, a.y + b.y, a.z + b.z);
 const sub = (a: Vec3, b: Vec3): Vec3 => V(a.x - b.x, a.y - b.y, a.z - b.z);
+const scale = (v: Vec3, s: number): Vec3 => V(v.x * s, v.y * s, v.z * s);
+const cross = (a: Vec3, b: Vec3): Vec3 =>
+  V(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
 const length = (v: Vec3): number => Math.hypot(v.x, v.y, v.z);
+const capped = (v: Vec3, max: number): Vec3 => {
+  const size = length(v);
+  return size > max ? scale(v, max / size) : v;
+};
+const pairKey = (a: string | number, b: string | number) =>
+  a < b ? `${a}:${b}` : `${b}:${a}`;
 const inverse = (q: Quat): Quat => ({ x: -q.x, y: -q.y, z: -q.z, w: q.w });
 function rotate(v: Vec3, q: Quat): Vec3 {
   const tx = 2 * (q.y * v.z - q.z * v.y);
@@ -296,14 +349,18 @@ let rapierReady: Promise<void> | undefined;
 /**
  * Real Rapier rigid-body dynamics. No animation poses, timers or kinematic overrides.
  * Spherical joints deliberately allow unrestricted rotation; this is a joint demo,
- * not a medical/anatomical model. Adjacent segments have collisions disabled while
- * non-adjacent segments keep self-collision. See https://rapier.rs/docs/user_guides/javascript/joints/.
+ * not a medical/anatomical model. Joined limb/spine segments have collisions disabled;
+ * the neck pair and non-adjacent segments keep self-collision. See
+ * https://rapier.rs/docs/user_guides/javascript/joints/.
  */
 export async function createRagdollSimulation(
   options: RagdollOptions = {},
 ): Promise<RagdollSimulation> {
   const spawnHeight = options.spawnHeight ?? 1.1;
   const tilt = options.tilt ?? 0.16;
+  let selfCollisionEnabled = options.selfCollision ?? true;
+  if (typeof selfCollisionEnabled !== "boolean")
+    throw new TypeError("selfCollision must be a boolean");
   if (!Number.isFinite(spawnHeight) || spawnHeight < 0.15 || spawnHeight > 4) {
     throw new RangeError("spawnHeight must be between 0.15 and 4 metres");
   }
@@ -318,8 +375,31 @@ export async function createRagdollSimulation(
   const fixedDt = 1 / 120;
   const bounds = Object.freeze({ halfWidth: 6, height: 8, groundY: 0 });
   const model = definitions();
+  // Group 1 = ragdoll, group 2 = environment. Both sides must allow a pair.
+  const environmentGroups = (2 << 16) | 1;
+  const bodyGroups = () => (1 << 16) | (selfCollisionEnabled ? 3 : 2);
+  const adjacentPairs = new Set(
+    model.joints
+      .filter(({ id }) => id !== "neck")
+      .map(({ bodyA, bodyB }) => pairKey(bodyA, bodyB)),
+  );
+  const dragSettings = Object.freeze({
+    stiffness: 1200,
+    damping: 75,
+    maxForce: 900,
+    maxExtension: 1.5,
+    maxTargetSpeed: 6,
+  });
+  let drag: {
+    part: Part;
+    localAnchor: Vec3;
+    target: Vec3;
+    springTarget: Vec3;
+    force: Vec3;
+  } | null = null;
   let world: RAPIER.World;
   let parts: Part[] = [];
+  let byCollider = new Map<number, Part>();
   let connections: Connection[] = [];
   let ground: RAPIER.Collider;
   let steps = 0;
@@ -327,8 +407,111 @@ export async function createRagdollSimulation(
   const assertAlive = () => {
     if (disposed) throw new Error("Ragdoll simulation has been disposed");
   };
+  const finitePoint = (point: Vec3) => {
+    if (![point.x, point.y, point.z].every(Number.isFinite))
+      throw new RangeError("Drag point must contain finite numbers");
+  };
+  const clampTarget = (point: Vec3): Vec3 =>
+    V(
+      Math.max(
+        -bounds.halfWidth + 0.3,
+        Math.min(bounds.halfWidth - 0.3, point.x),
+      ),
+      Math.max(bounds.groundY, Math.min(bounds.height - 0.3, point.y)),
+      Math.max(
+        -bounds.halfWidth + 0.3,
+        Math.min(bounds.halfWidth - 0.3, point.z),
+      ),
+    );
+  const dragAnchor = () =>
+    drag
+      ? add(
+          drag.part.body.translation(),
+          rotate(drag.localAnchor, drag.part.body.rotation()),
+        )
+      : V();
+
+  function applyDrag() {
+    if (!drag) return;
+    const body = drag.part.body;
+    const anchor = dragAnchor();
+    // Bound how quickly pointer movement can move the spring, including huge
+    // alternating jumps. This limits power injection without modifying any pose.
+    drag.springTarget = add(
+      drag.springTarget,
+      capped(
+        sub(drag.target, drag.springTarget),
+        dragSettings.maxTargetSpeed * fixedDt,
+      ),
+    );
+    const error = capped(
+      sub(drag.springTarget, anchor),
+      dragSettings.maxExtension,
+    );
+    const velocity = body.velocityAtPoint(anchor);
+    const offset = sub(anchor, body.worldCom());
+    const inverseMass = body.effectiveInvMass();
+    const inertia = body.effectiveWorldInvInertia();
+    const multiplyInertia = (v: Vec3) =>
+      V(
+        inertia.m11 * v.x + inertia.m12 * v.y + inertia.m13 * v.z,
+        inertia.m21 * v.x + inertia.m22 * v.y + inertia.m23 * v.z,
+        inertia.m31 * v.x + inertia.m32 * v.y + inertia.m33 * v.z,
+      );
+    // K maps an impulse at the grab point to the velocity change at that point.
+    // Implicit spring/damper integration handles light hands and off-centre torque
+    // without the timestep-sensitive instability of an explicit Hooke-law force.
+    const response = (axis: Vec3) =>
+      add(
+        V(
+          inverseMass.x * axis.x,
+          inverseMass.y * axis.y,
+          inverseMass.z * axis.z,
+        ),
+        cross(multiplyInertia(cross(offset, axis)), offset),
+      );
+    const gain =
+      fixedDt * dragSettings.damping +
+      fixedDt * fixedDt * dragSettings.stiffness;
+    const x = response(V(1, 0, 0));
+    const y = response(V(0, 1, 0));
+    const z = response(V(0, 0, 1));
+    const a = 1 + gain * x.x,
+      b = gain * y.x,
+      c = gain * z.x;
+    const d = 1 + gain * y.y,
+      e = gain * z.y,
+      f = 1 + gain * z.z;
+    const rhs = scale(
+      sub(
+        scale(error, dragSettings.stiffness),
+        scale(velocity, dragSettings.damping),
+      ),
+      fixedDt,
+    );
+    // Invert the symmetric positive-definite matrix I + gain*K.
+    const aa = d * f - e * e,
+      ab = c * e - b * f,
+      ac = b * e - c * d;
+    const bb = a * f - c * c,
+      bc = b * c - a * e,
+      cc = a * d - b * b;
+    const determinant = a * aa + b * ab + c * ac;
+    const impulse = capped(
+      V(
+        (aa * rhs.x + ab * rhs.y + ac * rhs.z) / determinant,
+        (ab * rhs.x + bb * rhs.y + bc * rhs.z) / determinant,
+        (ac * rhs.x + bc * rhs.y + cc * rhs.z) / determinant,
+      ),
+      dragSettings.maxForce * fixedDt,
+    );
+    drag.force = scale(impulse, 1 / fixedDt);
+    // One impulse per fixed step, so release leaves no persistent external force.
+    body.applyImpulseAtPoint(impulse, anchor, true);
+  }
 
   function build() {
+    drag = null;
     world = new RAPIER.World(V(0, -9.81, 0));
     world.timestep = fixedDt;
     world.numSolverIterations = 12;
@@ -338,27 +521,26 @@ export async function createRagdollSimulation(
       RAPIER.ColliderDesc.cuboid(6.25, 0.25, 6.25)
         .setTranslation(0, -0.25, 0)
         .setFriction(0.85)
+        .setCollisionGroups(environmentGroups)
         .setRestitution(0),
     );
     // A distant physical enclosure keeps repeated user impulses in a finite sandbox.
     for (const side of [-1, 1]) {
       world.createCollider(
-        RAPIER.ColliderDesc.cuboid(0.25, 4, 6.25).setTranslation(
-          side * 6.25,
-          4,
-          0,
-        ),
+        RAPIER.ColliderDesc.cuboid(0.25, 4, 6.25)
+          .setCollisionGroups(environmentGroups)
+          .setTranslation(side * 6.25, 4, 0),
       );
       world.createCollider(
-        RAPIER.ColliderDesc.cuboid(6.25, 4, 0.25).setTranslation(
-          0,
-          4,
-          side * 6.25,
-        ),
+        RAPIER.ColliderDesc.cuboid(6.25, 4, 0.25)
+          .setCollisionGroups(environmentGroups)
+          .setTranslation(0, 4, side * 6.25),
       );
     }
     world.createCollider(
-      RAPIER.ColliderDesc.cuboid(6.25, 0.25, 6.25).setTranslation(0, 8.25, 0),
+      RAPIER.ColliderDesc.cuboid(6.25, 0.25, 6.25)
+        .setCollisionGroups(environmentGroups)
+        .setTranslation(0, 8.25, 0),
     );
     const rotation: Quat = {
       x: Math.sin(tilt / 2),
@@ -395,11 +577,16 @@ export async function createRagdollSimulation(
           definition.dimensions.z / 2,
         );
       const collider = world.createCollider(
-        desc.setMass(definition.mass).setFriction(0.7).setRestitution(0.02),
+        desc
+          .setMass(definition.mass)
+          .setFriction(0.7)
+          .setRestitution(0.02)
+          .setCollisionGroups(bodyGroups()),
         body,
       );
       return { definition, body, collider };
     });
+    byCollider = new Map(parts.map((part) => [part.collider.handle, part]));
     const byId = new Map(parts.map((part) => [part.definition.id, part]));
     connections = model.joints.map((definition) => {
       const a = byId.get(definition.bodyA)!;
@@ -411,7 +598,10 @@ export async function createRagdollSimulation(
           ? RAPIER.JointData.spherical(anchorA, anchorB)
           : RAPIER.JointData.revolute(anchorA, anchorB, V(1, 0, 0));
       const joint = world.createImpulseJoint(data, a.body, b.body, true);
-      joint.setContactsEnabled(false);
+      // The neck anchors have clearance, so its sphere/torso contact can coexist
+      // with the joint. Suppressing this pair lets the free spherical neck fold
+      // the entire head into the chest. Other joined segments intentionally overlap.
+      joint.setContactsEnabled(definition.id === "neck");
       if (definition.limits)
         (joint as RAPIER.RevoluteImpulseJoint).setLimits(...definition.limits);
       return { definition, joint, a, b };
@@ -444,11 +634,45 @@ export async function createRagdollSimulation(
       };
     });
   };
+  const getSelfContacts = (): RagdollSelfContact[] => {
+    assertAlive();
+    if (!selfCollisionEnabled) return [];
+    const contacts: RagdollSelfContact[] = [];
+    const seen = new Set<string>();
+    for (const part of parts) {
+      world.contactPairsWith(part.collider, (other) => {
+        const otherPart = byCollider.get(other.handle);
+        if (!otherPart) return; // The ground, walls and ceiling are never self contacts.
+        const bodyA = part.definition.id;
+        const bodyB = otherPart.definition.id;
+        const key = pairKey(bodyA, bodyB);
+        if (seen.has(key) || adjacentPairs.has(key)) return;
+        seen.add(key);
+        world.contactPair(part.collider, other, (manifold, flipped) => {
+          for (let i = 0; i < manifold.numSolverContacts(); i++) {
+            const distance = manifold.solverContactDist(i);
+            if (distance > 0) continue; // Ignore mere proximity/speculative contacts.
+            contacts.push({
+              bodyA,
+              bodyB,
+              point: { ...manifold.solverContactPoint(i) },
+              normal: scale(manifold.normal(), flipped ? -1 : 1),
+              distance,
+              penetration: Math.max(0, -distance),
+            });
+          }
+        });
+      });
+    }
+    return contacts;
+  };
   const dispose = () => {
     if (disposed) return;
     world.free();
     parts = [];
     connections = [];
+    byCollider.clear();
+    drag = null;
     disposed = true;
   };
 
@@ -460,6 +684,7 @@ export async function createRagdollSimulation(
       if (!Number.isInteger(count) || count < 0 || count > 12000)
         throw new RangeError("steps must be an integer from 0 to 12000");
       for (let i = 0; i < count; i++) {
+        applyDrag();
         world.step();
         steps++;
       }
@@ -482,6 +707,84 @@ export async function createRagdollSimulation(
         true,
       );
     },
+    beginDrag(bodyId, worldPoint) {
+      assertAlive();
+      finitePoint(worldPoint);
+      const part = parts.find((part) => part.definition.id === bodyId);
+      if (!part) throw new RangeError(`Unknown body: ${bodyId}`);
+      // Constrain malformed far-away picks to the collider, preserving true surface
+      // intersections unchanged. This also bounds leverage before computing torque.
+      // Keep all valid collider hits unchanged, including floor-height feet and
+      // hands. Pointer-target margins must not move the actual surface anchor.
+      const projectionPoint = V(
+        Math.max(
+          -bounds.halfWidth * 2,
+          Math.min(bounds.halfWidth * 2, worldPoint.x),
+        ),
+        Math.max(-bounds.height, Math.min(bounds.height * 2, worldPoint.y)),
+        Math.max(
+          -bounds.halfWidth * 2,
+          Math.min(bounds.halfWidth * 2, worldPoint.z),
+        ),
+      );
+      const projection = part.collider.projectPoint(projectionPoint, true);
+      if (!projection)
+        throw new Error("Unable to project drag point onto collider");
+      const anchor = projection.point;
+      drag = {
+        part,
+        localAnchor: rotate(
+          sub(anchor, part.body.translation()),
+          inverse(part.body.rotation()),
+        ),
+        target: clampTarget(anchor),
+        springTarget: { ...anchor },
+        force: V(),
+      };
+      part.body.wakeUp();
+    },
+    updateDragTarget(worldPoint) {
+      assertAlive();
+      finitePoint(worldPoint);
+      if (drag) drag.target = clampTarget(worldPoint);
+    },
+    endDrag() {
+      assertAlive();
+      drag = null;
+    },
+    getDragState() {
+      assertAlive();
+      if (!drag) return null;
+      const worldAnchor = dragAnchor();
+      return {
+        bodyId: drag.part.definition.id,
+        localAnchor: { ...drag.localAnchor },
+        worldAnchor,
+        target: { ...drag.target },
+        springTarget: { ...drag.springTarget },
+        force: { ...drag.force },
+        forceMagnitude: length(drag.force),
+        extension: Math.min(
+          length(sub(drag.springTarget, worldAnchor)),
+          dragSettings.maxExtension,
+        ),
+        maxForce: dragSettings.maxForce,
+        maxExtension: dragSettings.maxExtension,
+        maxTargetSpeed: dragSettings.maxTargetSpeed,
+      };
+    },
+    setSelfCollision(enabled) {
+      assertAlive();
+      if (typeof enabled !== "boolean")
+        throw new TypeError("selfCollision must be a boolean");
+      if (selfCollisionEnabled === enabled) return;
+      selfCollisionEnabled = enabled;
+      for (const { collider, body } of parts) {
+        collider.setCollisionGroups(bodyGroups());
+        body.wakeUp();
+      }
+    },
+    getSelfContacts,
     getBodies() {
       assertAlive();
       return parts.map(({ definition, body }) => ({
@@ -549,6 +852,7 @@ export async function createRagdollSimulation(
       centerOfMass.x /= totalMass;
       centerOfMass.y /= totalMass;
       centerOfMass.z /= totalMass;
+      const selfContacts = getSelfContacts();
       return {
         elapsedTime: steps * fixedDt,
         stepCount: steps,
@@ -556,6 +860,15 @@ export async function createRagdollSimulation(
         jointCount: connections.length,
         contactCount,
         groundContactCount,
+        selfCollisionEnabled,
+        selfContactCount: selfContacts.length,
+        selfContactPairCount: new Set(
+          selfContacts.map(({ bodyA, bodyB }) => pairKey(bodyA, bodyB)),
+        ).size,
+        maxSelfPenetration: Math.max(
+          0,
+          ...selfContacts.map((contact) => contact.penetration),
+        ),
         maxJointError: Math.max(0, ...getJoints().map((joint) => joint.error)),
         averageSpeed: totalSpeed / parts.length,
         maxSpeed,

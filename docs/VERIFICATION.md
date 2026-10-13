@@ -3,11 +3,23 @@
 ## Mathematical and physical checks
 
 - Strict TypeScript compilation and production Vite build pass
-- 30 numerical/content tests cover analytic IK reach and degenerate poles; quaternion hierarchy, pose blending and matching invariants; CCD/FABRIK convergence and bone lengths; spline frames; swing/twist clamps; stationary stance feet and continuous landing; entire scene sampling, reachable default IK/contact, walking slider envelope; bilingual guide completeness; visible endpoint-marker separation
-- Rapier subset: 9 tests for actual gravity, ground contact, joint-anchor connection, deterministic replay/reset, real impulses, sleep/wake, finite state, detached outputs, and cleanup
-- A default 10-second Rapier drop produced a maximum anchor error of approximately 1.02 mm and all 15 bodies sleeping. This is a measured default case, not a universal accuracy guarantee. Shape-based contact can briefly penetrate the floor, and strong impulses can produce larger constraint errors
+- 39 numerical/content tests cover analytic IK reach and degenerate poles; quaternion hierarchy, pose blending and matching invariants; CCD/FABRIK convergence and bone lengths; spline frames; swing/twist clamps; stationary stance feet and continuous landing; entire scene sampling, reachable default IK/contact, walking slider envelope; bilingual guide completeness; visible endpoint-marker separation
+- Rapier subset: 18 tests for actual gravity, ground contact, joint-anchor connection, deterministic replay/reset, real impulses, sleep/wake, finite state, detached outputs, and cleanup
+- The initial release’s default 10-second Rapier drop produced a maximum anchor error of approximately 1.02 mm and all 15 bodies sleeping. This is a measured default case, not a universal accuracy guarantee. Shape-based contact can briefly penetrate the floor, and strong impulses can produce larger constraint errors
 - Additional independent review exercised five 20-second physics scenarios, 100 resets, random swing/twist rotations, solver degeneracies, and initialization/disposal/retry lifecycle behavior
 - Full dependency audit after the Vite 7.3.7 update reported zero known vulnerabilities on 2026-10-13
+
+## Ragdoll surface pulling and neck-contact regression
+
+The ragdoll supports a picked body-local surface anchor, an implicit damped spring applied as a fixed-step impulse at that point, a 900 N force cap, 1.5 m elastic-extension cap, and 6 m/s physical-target speed limit. The requested pointer and physical spring target are distinct. It never teleports a body to the pointer. Mouse and one-finger touch share the same raycast and camera-facing plane; empty space controls the orbit camera. Pausing ends the grab and prevents a deferred pull.
+
+An independent check reproduced a specific old defect: head/chest contact was excluded at the neck, permitting approximately 35 cm signed shape overlap. The neck is now collision-enabled while the other directly joined limb/spine pairs stay filtered. Body-only contact diagnostics exclude floor/walls and positive speculative distances. Turning self-collision off deliberately permits interpenetration; it does not disable the floor.
+
+Local regressions cover all fifteen grabbed segments, force/target caps, extreme pointer jumps, off-center torque, exact low hand/foot anchors, deterministic replay, release/reset/disposal, self-contact on/off comparison, geometric sphere/torso separation, and sustained head pulling into the torso. A renderer event harness additionally checked cancellation, lost capture, blur, visibility loss, camera changes, multiple pointers and listener cleanup.
+
+Independent post-fix measurements: default head/chest overlap 2.13 mm; normal all-part drags 2.84 mm with maximum joint-anchor error 0.201 mm. Extreme alternating target jumps remained finite and settled after release, but transient head/chest overlap reached 24.8 mm. These are scenario measurements, not universal nonpenetration guarantees.
+
+The browser suite now includes four additional interaction tests for head/torso/hand/foot mouse picking, interruption cleanup, self-contact filtering, and real Chromium touch input on mobile. Passing touch and drag runs retain videos as well as screenshots. The latest Actions run is the authority for the current source; the historical run below records the original nine-demo baseline.
 
 ## Actual WebGL browser checks
 
@@ -40,4 +52,4 @@ Intentional implementation differences from concept:
 
 ## Remaining coverage limits
 
-This is an educational first release. Browser testing currently covers Chromium software WebGL, not Safari, Firefox, every GPU/driver, or prolonged mobile thermal performance. Touch targets are provided, but the automated drag uses mouse events. Numerical tolerances and bounded simulation steps do not guarantee production-rigging or physically exact results under arbitrary inputs.
+This is an educational first release. Browser testing currently covers Chromium software WebGL, not Safari, Firefox, every GPU/driver, or prolonged mobile thermal performance. The updated drag suite uses mouse input and Chromium-emulated touch; physical iOS/Android devices remain untested. Numerical tolerances and bounded simulation steps do not guarantee production-rigging or physically exact results under arbitrary inputs.
