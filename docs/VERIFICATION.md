@@ -11,19 +11,19 @@
 
 ## Actual WebGL browser checks
 
-[The complete browser suite passed](https://github.com/domizo/joint-motion-lab/actions/runs/38332708180) on source `11a264cc7204a5cc91395b25f3a49f7a91117abb`: 12 tests, no retries, in Chromium with software WebGL on Ubuntu/Node 24. Tests use the production Vite preview, not a development build. Every subsequent source push reruns the same checks; see [the latest workflow results](https://github.com/domizo/joint-motion-lab/actions).
+[The complete browser suite passed](https://github.com/domizo/joint-motion-lab/actions/runs/38333479163) on source `2676165beb0d8d4858f81c0f8fa405e1dde23439`: 12 tests, no retries, in Chromium with software WebGL on Ubuntu/Node 24. Tests use the production Vite preview, not a development build. Every subsequent source push reruns the same checks; see [the latest workflow results](https://github.com/domizo/joint-motion-lab/actions).
 
 - Each of the nine demos produces nonempty WebGL pixels, finite changing poses, changing rendered pixels, advancing time, stable paused state and zero time after a paused reset
 - Slider input produces the explicit out-of-reach state; direct pointer dragging moves the IK target
 - Lab/Guide navigation and browser history retain scene parameters
-- Both IK/FK matching directions align their source controls; real ragdoll pushes produce kinetic energy
+- Both matching buttons and the ragdoll push button respond in the browser; the test observes a matched pose and nonzero energy. Independent numerical tests establish matching invariants and the effect of an impulse relative to an unpushed simulation. The browser reverse-match check starts from already matched sources, and nonzero energy alone cannot distinguish an impulse from gravity
 - English desktop (1536 × 1024) and Japanese mobile (390 × 844) layouts are captured; all mobile demo controls fit without horizontal page overflow
 - The largest mobile target position remains within the canvas
 - The per-demo tests detect uncaught page exceptions. No uncaught exceptions were reported; browser-console warning coverage is not exhaustive
 
 The saved screenshots were inspected, including every desktop demo, the desktop guide, Japanese mobile guide/lab, and the mobile drag/target state. Review found and corrected guide pole clipping, tight mobile framing, and overlapping endpoint-marker surfaces. Screenshot artifacts and the HTML test report are retained in Actions for 14 days. Videos and traces are retained on failure; passing runs are verified by pixel/pose assertions and screenshots, not by a retained video.
 
-The local deployment build was compared byte-for-byte with the production build artifact from the successful browser run. The hosted Site is private; its cloud-browser visit stops at the owner sign-in gate. No new sign-in or access grant was performed. Hosted authentication behavior and rendering beyond that gate have not been tested. Native deployment metadata verifies publication separately from same-source browser QA.
+The deployable runtime assets were compared byte-for-byte with the production build artifact from successful run `38333479163` on runtime source `2676165beb0d8d4858f81c0f8fa405e1dde23439`; the local-only hosting identity is excluded from that comparison. Subsequent documentation-only edits do not change those assets. The hosted Site is private; its cloud-browser visit stops at the owner sign-in gate. No new sign-in or access grant was performed. Hosted authentication behavior and rendering beyond that gate have not been tested. Native deployment metadata verifies publication separately from same-source browser QA.
 
 ## Visual reference and deliberate differences
 
