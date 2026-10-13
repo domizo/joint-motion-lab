@@ -129,7 +129,7 @@ export function makeFrame(
     ].map((a) => new Quaternion().setFromAxisAngle(V(0, 0, 1), a * DEG));
     const r = forward(root, [1.1, 0.9, 0.55], q);
     chain(f, r.points);
-    f.markers.push({ position: r.points[3], color: LIME, size: 0.115 });
+    f.markers.push({ position: r.points[3], color: LIME, size: 0.16 });
     if (construction) r.worlds.forEach((q, i) => axes(f, r.points[i], q));
     f.metrics = { tipX: r.points[3].x, tipY: r.points[3].y, bones: 3 };
   } else if (id === "ik" || id === "blend") {
@@ -164,7 +164,7 @@ export function makeFrame(
     f.markers.push({
       position: target,
       color: LIME,
-      size: 0.145,
+      size: 0.16,
       type: "target",
     });
     if (construction) {
@@ -201,7 +201,7 @@ export function makeFrame(
     f.markers.push({
       position: target,
       color: LIME,
-      size: 0.14,
+      size: 0.16,
       type: "target",
     });
     f.metrics = {
@@ -276,7 +276,7 @@ export function makeFrame(
     f.markers.push({
       position: hand,
       color: LIME,
-      size: 0.13,
+      size: 0.16,
       type: "contact",
     });
     f.ground = p.ground;

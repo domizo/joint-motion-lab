@@ -36,7 +36,7 @@ For the browser suite, first install its browser with `npx playwright install ch
 | Joint constraints | Local swing/twist decomposition and angular clamping, requested/limited comparison                |
 | Ragdoll           | Genuine Rapier rigid bodies, colliders, spherical and revolute joints, gravity and floor contacts |
 
-The Guide contains original English/Japanese explanations, formulas, parameter experiments, failure cases, diagrams generated from the current settings, and primary-source links. The language switch changes both the lab and the guide. Every experiment has a direct URL, such as `?demo=spline&view=guide&lang=en`.
+The Guide contains original English/Japanese explanations, formulas, parameter experiments, failure cases, diagrams generated from the current settings (plus a labeled static ragdoll schematic), and primary-source links. The language switch changes both the lab and the guide. Every experiment has a direct URL, such as `?demo=spline&view=guide&lang=en`.
 
 ## Interaction
 

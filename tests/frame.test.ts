@@ -14,6 +14,28 @@ describe("scene snapshots", () => {
             expect(Number.isFinite(value)).toBeTruthy();
       }
   });
+  it("endpoint highlights clear coincident joint surfaces", () => {
+    for (const id of ["fk", "ik", "chain", "contact"] as const) {
+      const f = makeFrame(
+        id,
+        demos.find((d) => d.id === id)!.defaults,
+        0,
+        false,
+        true,
+      );
+      const highlights = f.markers.filter((m) => m.color === 0xb8d955);
+      expect(highlights.length).toBeGreaterThan(0);
+      for (const marker of highlights) {
+        const coincident = f.markers.filter(
+          (m) =>
+            m.type === "joint" &&
+            m.position.distanceTo(marker.position) < 0.002,
+        );
+        for (const joint of coincident)
+          expect(marker.size! - joint.size!).toBeGreaterThan(0.01);
+      }
+    }
+  });
   it("default IK stays reachable across the whole input cycle", () => {
     for (let t = 0; t < 30; t += 0.1) {
       const f = makeFrame(
