@@ -19,12 +19,15 @@ Local regressions cover all fifteen grabbed segments, force/target caps, extreme
 
 Independent post-fix measurements: default head/chest overlap 2.13 mm; normal all-part drags 2.84 mm with maximum joint-anchor error 0.201 mm. Extreme alternating target jumps remained finite and settled after release, but transient head/chest overlap reached 24.8 mm. These are scenario measurements, not universal nonpenetration guarantees.
 
-The browser suite now includes four additional interaction tests for head/torso/hand/foot mouse picking, interruption cleanup, self-contact filtering, and real Chromium touch input on mobile. Passing touch and drag runs retain videos as well as screenshots. The latest Actions run is the authority for the current source; the historical run below records the original nine-demo baseline.
+The browser suite includes four additional interaction tests for head/torso/hand/foot mouse picking, interruption cleanup, self-contact filtering, and real Chromium touch input on mobile. Passing touch and drag runs retain videos as well as screenshots.
 
 ## Actual WebGL browser checks
 
-[The complete browser suite passed](https://github.com/domizo/joint-motion-lab/actions/runs/38333479163) on source `2676165beb0d8d4858f81c0f8fa405e1dde23439`: 12 tests, no retries, in Chromium with software WebGL on Ubuntu/Node 24. Tests use the production Vite preview, not a development build. Every subsequent source push reruns the same checks; see [the latest workflow results](https://github.com/domizo/joint-motion-lab/actions).
+[The complete current-runtime browser suite passed](https://github.com/domizo/joint-motion-lab/actions/runs/38340845374) on source `91df0e85359384dad8049698ffdb1fafae6ba545`: 16 tests, no retries, in Chromium with software WebGL on Ubuntu/Node 24. Tests use the production Vite preview, not a development build. Every subsequent source push reruns the same checks; see [the latest workflow results](https://github.com/domizo/joint-motion-lab/actions).
 
+- Surface pulling checks actual ray-picking and movement of the head, chest, hand, and foot; the camera stays fixed during a pull. Release, pointer cancellation, lost capture, blur, pause, reset, Guide, and experiment switches clear the spring
+- Mobile touch tests exercise hand/head pulling, second-pointer arbitration, and touch cancellation
+- Self-contact checks distinguish body/body contacts from the floor and verify the on/off filter
 - Each of the nine demos produces nonempty WebGL pixels, finite changing poses, changing rendered pixels, advancing time, stable paused state and zero time after a paused reset
 - Slider input produces the explicit out-of-reach state; direct pointer dragging moves the IK target
 - Lab/Guide navigation and browser history retain scene parameters
@@ -35,7 +38,11 @@ The browser suite now includes four additional interaction tests for head/torso/
 
 The saved screenshots were inspected, including every desktop demo, the desktop guide, Japanese mobile guide/lab, and the mobile drag/target state. Review found and corrected guide pole clipping, tight mobile framing, and overlapping endpoint-marker surfaces. Screenshot artifacts and the HTML test report are retained in Actions for 14 days. For the original baseline, videos and traces were retained on failure; passing runs used pixel/pose assertions and screenshots. The new surface-pull tests additionally retain successful videos.
 
-For the original release, deployable runtime assets were compared byte-for-byte with successful run `38333479163` on source `2676165beb0d8d4858f81c0f8fa405e1dde23439`, excluding the local-only hosting identity. That comparison is historical and does not attest later runtime changes. The surface-drag and neck-contact update has its own [exact-source workflow and artifacts](https://github.com/domizo/joint-motion-lab/actions/runs/38340280029); subsequent fixes are identified by their source commit in the latest workflow results. Publication requires a fresh asset comparison with the successful current-runtime artifact. The hosted Site is private; its cloud-browser visit stops at the owner sign-in gate. No new sign-in or access grant was performed. Hosted authentication behavior and rendering beyond that gate have not been tested. Native deployment metadata verifies publication separately from same-source browser QA.
+Deployable runtime assets for source `91df0e85359384dad8049698ffdb1fafae6ba545` were compared byte-for-byte against the `static-build` artifact from successful run `38340845374` and matched. The comparison excluded only local hosting identity metadata. The passing drag videos and their extracted motion frames were reviewed, alongside desktop and mobile screenshots. Three unedited captures from this exact run are retained in [docs/screenshots](screenshots/README.md), independently of the expiring CI artifact.
+
+The public repository is intended to be cloned and run locally. No publicly hosted demo is asserted here. Hosted authentication and rendering beyond an owner sign-in gate were not tested. These checks establish same-source Chromium rendering and interaction, not hosted access or every browser/GPU.
+
+The public-release preparation changes license notices, README/screenshots, and verification documentation only; it does not change the application or physics source. Its exact commit is checked again by [the repository workflow](https://github.com/domizo/joint-motion-lab/actions/workflows/verify.yml) before visibility changes. An older successful run is evidence for its named source, not an automatic guarantee about subsequent edits.
 
 ## Visual reference and deliberate differences
 

@@ -1,0 +1,14 @@
+{
+  "checked_at": "2026-10-13",
+  "rapier_tag_commit": "0fd32c1cbbc7018af36f09b190c16ce72fbb9301",
+  "rust_commit": "1159e78c4747b02ef996e55082b704c09b970588",
+  "rust_std_archive_sha256": "e6e3964f4a9639688577d5a3609633b983c795ad8de43c9eceb878a84d1aeb78",
+  "rustc_archive_sha256": "48c2a42de9e92fcae8c24568f5fe40d5734696a6f80e83cc6d46eef1a78f13c9",
+  "files": {
+    "public/RUST_STD_COPYRIGHT.html": "025c0dd1236493fcd5b6386b68453852e6528722bd5f8dce5949e94d225e7a60",
+    "public/THIRD_PARTY_NOTICES.txt": "2a80e4ac32926bce2a587d51494aa4c4b4777903043dfb77cdc5e40f21bf56c0",
+    "docs/upstream/rapier-js-0.19.3.Cargo.lock": "233d13421c0d0ac34b2165d1791a6ad303dd46bd83ab2ca94328c289d9aebecc",
+    "docs/upstream/rapier-js-0.19.3.Cargo.toml.tera": "1580bddeea3bbb0d54de5c53cbb09a442d6789817489ef2ae6df47687a67160c",
+    "docs/upstream/rapier-wasm-crates.json": "8637b66a9f5ee778ba7d0bcd6c7d8dc42c26506f52397caf134918a9a1587a32"
+  }
+}
